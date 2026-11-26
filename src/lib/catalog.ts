@@ -4,7 +4,6 @@ import {addMedia,addRecord,cleanup,entries,entry,HttpError,trash,updateRecord,ty
 import {color,emoji,field,id,media} from "./security";
 import {mediaUrl,type Catalog,type Topic,type Word} from "./model";
 import {demo} from "./demo";
-import {synthesizeVietnamese} from "./tts";
 import {audioAction} from "./audio-policy.mjs";
 export function publicTopic(t:StoredTopic):Topic{const {coverId,...v}=t;return {...v,...(coverId?{cover:mediaUrl("topic",v.id,"cover")}:{})};}
 export function publicWord(w:StoredWord):Word{const {imageId,videoId,audioId,...v}=w;return {...v,...(imageId?{image:mediaUrl("word",v.id,"image")} : {}),...(videoId?{video:mediaUrl("word",v.id,"video")} : {}),...(audioId?{audio:mediaUrl("word",v.id,"audio")+"?v="+encodeURIComponent(v.updatedAt)} : {})};}
@@ -37,14 +36,15 @@ export async function saveWord(form:FormData,key?:string){
   if(old&&old.value.topicId!==topicId)throw new HttpError(400,"Không thể đổi chủ đề của từ ngữ.");
   const value:StoredWord={id:old?.value.id??randomUUID(),topicId,text:field(form,"text",1,60),description:field(form,"description",0,300),emoji:emoji(form),createdAt:old?.value.createdAt??stamp(),updatedAt:stamp(),imageId:old?.value.imageId,videoId:old?.value.videoId,audioId:old?.value.audioId};
   const [image,video,manualAudio]=await Promise.all([media(form,"image",!old),media(form,"video",!old),media(form,"audio")]);
-  const action=audioAction({previousText:old?.value.text,text:value.text,hasAudio:!!old?.value.audioId,uploaded:!!manualAudio,regenerate:form.get("regenerateAudio")==="true"||form.get("removeAudio")==="true"});
-  // Synthesize before uploading media so a TTS failure leaves the old record untouched.
-  const audio=action==="generate"?await synthesizeVietnamese(value.text):manualAudio;
+  const action=audioAction({previousText:old?.value.text,text:value.text,hasAudio:!!old?.value.audioId,uploaded:!!manualAudio,remove:form.get("removeAudio")==="true"||form.get("regenerateAudio")==="true"});
+  const audio=manualAudio;
   const created:string[]=[];const replaced:string[]=[];
   try{
     for(const [slot,file,prop] of [["image",image,"imageId"],["video",video,"videoId"],["audio",audio,"audioId"]] as const){
       if(file){if(value[prop])replaced.push(value[prop]!);value[prop]=await upload(value.id,slot,file,created);}
     }
+    // Remove a stale recording only after the updated record has been saved.
+    if(action==="drop"&&value.audioId){replaced.push(value.audioId);delete value.audioId;}
     if(old)await updateRecord(old.file,value);else await addRecord("word",value);
   }catch(e){await cleanup(created);throw e;}
   await cleanup(replaced);
