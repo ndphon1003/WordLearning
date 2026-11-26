@@ -78,6 +78,16 @@ export async function entry<T extends Stored>(kind:Kind,id:string){
   return read<T>(files[0]);
 }
 async function multipart(metadata:object,data:Uint8Array,mime:string){
+  if(data.byteLength>5*1024*1024){
+    const start=await request(uploadBase+"files?uploadType=resumable&fields="+encodeURIComponent(fields),{method:"POST",headers:{"Content-Type":"application/json; charset=UTF-8","X-Upload-Content-Type":mime,"X-Upload-Content-Length":String(data.byteLength)},body:JSON.stringify(metadata)});
+    const location=start.headers.get("location");
+    await start.body?.cancel();
+    if(!location)throw new HttpError(502,"Không tạo được phiên upload video.");
+    const session=new URL(location);
+    if(session.protocol!=="https:"||session.hostname!=="www.googleapis.com")throw new HttpError(502,"Phiên upload không hợp lệ.");
+    const uploaded=await request(session.toString(),{method:"PUT",headers:{"Content-Type":mime,"Content-Length":String(data.byteLength)},body:new Uint8Array(data)});
+    return await uploaded.json() as DriveFile;
+  }
   const boundary="wl_"+randomUUID();
   const body=Buffer.concat([Buffer.from("--"+boundary+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"+JSON.stringify(metadata)+"\r\n--"+boundary+"\r\nContent-Type: "+mime+"\r\n\r\n"),Buffer.from(data),Buffer.from("\r\n--"+boundary+"--\r\n")]);
   const response=await request(uploadBase+"files?uploadType=multipart&fields="+encodeURIComponent(fields),{method:"POST",headers:{"Content-Type":"multipart/related; boundary="+boundary},body:new Uint8Array(body)});
@@ -92,7 +102,7 @@ export async function updateRecord(file:DriveFile,value:Stored){
 }
 export async function addMedia(ownerId:string,slot:string,file:File){
   const data=new Uint8Array(await file.arrayBuffer());
-  return multipart({name:ownerId+"-"+slot+"."+({ "image/jpeg":"jpg","image/png":"png","image/webp":"webp","video/mp4":"mp4","audio/mpeg":"mp3","audio/wav":"wav"}[file.type]??"bin"),parents:[root()],mimeType:file.type,appProperties:{wlKind:"media",ownerId,slot}},data,file.type);
+  return multipart({name:ownerId+"-"+slot+"."+(({ "image/jpeg":"jpg","image/png":"png","image/webp":"webp","video/mp4":"mp4","audio/mpeg":"mp3","audio/wav":"wav"} as Record<string,string>)[file.type]??"bin"),parents:[root()],mimeType:file.type,appProperties:{wlKind:"media",ownerId,slot}},data,file.type);
 }
 export async function trash(id:string){
   const r=await request(url("files/"+encodeURIComponent(id)),{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({trashed:true})});
