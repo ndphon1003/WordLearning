@@ -1,30 +1,15 @@
-# Giọng đọc tiếng Việt miễn phí
+# Bản thu âm và media bài học
 
-WordLearning có một nút Nghe phát âm cho cả từ, không đọc từng tiếng riêng. Nếu từ có bản thu MP3/WAV, phát bản thu. Nếu không, thử Web Speech API bằng giọng tiếng Việt; nếu thiếu giọng hoặc lỗi, tải và chạy Piper/VITS trên trình duyệt bằng ONNX Runtime Web. Không dùng Google Cloud TTS, Billing, API key, eSpeak NG trên server hoặc endpoint nội bộ Google Dịch.
+Không sử dụng TTS tự động. Giáo viên tự thu hoặc chuẩn bị bản thu tiếng Việt và upload MP3/WAV (tối đa 5 MiB), cùng ảnh và video MP4. Mỗi từ mới bắt buộc có cả ba media. Nếu từ cũ chưa có audio, nút Âm thanh hiển thị thông báo; mở /admin và bổ sung bản thu. Khi sửa từ ngữ, cần bản thu mới để không phát sai chữ. Nếu chỉ sửa mô tả/ảnh/video và từ đã có audio thì giữ nguyên bản thu, có thể nghe thử hoặc tải bản thay thế trong trang quản trị. Dữ liệu Drive cũ không bị tự động xóa hay migrate.
 
-## Chạy local
+Trang học:
+- Danh sách từ chỉ hiện chữ; ảnh bìa chủ đề giữ nguyên.
+- Bài học mặc định chỉ hiện từ, mô tả nếu có và ba nút Âm thanh, Hình ảnh, Video.
+- Âm thanh: phát bản thu ở tốc độ gốc, nhấn lại để dừng.
+- Hình ảnh: mở/đóng ảnh minh họa.
+- Video: mở/đóng trình phát; học sinh bấm Play để xem, không autoplay.
+- Chuyển media hoặc chuyển từ sẽ dừng phát media trước đó. Trò chơi chọn hình vẫn hiện ảnh để làm bài tập.
 
-Sau khi pull, chạy:
+Sau khi pull chạy npm install để loại bỏ thư viện TTS cũ, sau đó npm run dev. Không cần credentials mới. Không cần cài eSpeak, tải model AI hay Google Cloud Billing. Âm thanh được lưu trên Google Drive, tương tự ảnh và video.
 
-```powershell
-npm install
-npm run dev
-```
-
-Giữ nguyên các biến môi trường Google Drive. Không cần ESPEAK_NG_PATH, GOOGLE_CLOUD_PROJECT_ID hay GOOGLE_TTS_VOICE. Nếu đã thêm chúng trước đó, có thể xóa. Vào /admin, thêm từ ngữ, ảnh và video, bỏ trống audio. Mở bài học và bấm Nghe phát âm.
-
-## Model AI
-
-Dùng @diffusionstudio/vits-web 1.0.3, voice vi_VN-vais1000-medium. Model khoảng 63 MB; thư viện tải model từ Hugging Face và runtime từ các CDN được cấu hình bởi thư viện. Trình duyệt cần Internet ở lần đầu và môi trường secure context (localhost hoặc HTTPS), WebAssembly và Origin Private File System (OPFS). Model có thể được cache theo origin của website; trình duyệt có thể xóa cache. Nếu không có giọng tiếng Việt của trình duyệt, hệ thống chuẩn bị âm thanh của từ đang mở sau khoảng 350 ms, không tự phát. Khi nhấn nút, dùng kết quả đã có hoặc chờ công việc đang chạy. Tối đa 12 đoạn âm thanh hoặc 4 MiB được cache tạm trong RAM của tab. Lần đầu tải model vẫn có thể chậm. Web Speech đọc ở 0.65x; audio Piper/bản thu phát 0.70x và ưu tiên giữ cao độ qua HTML Audio. Nếu trình duyệt chặn phát trễ, Web Audio dự phòng cũng giảm tốc nhưng có thể hạ cao độ. Văn bản được tổng hợp tại thiết bị, audio chỉ ở bộ nhớ; không lưu audio xuống Drive hoặc filesystem. Trên một số thiết bị, chính sách autoplay có thể yêu cầu bấm nghe lần nữa. Nếu hủy, kết quả đang tạo sẽ không phát; tiến trình tải/inference của thư viện có thể vẫn hoàn thành.
-
-Nguồn model: https://huggingface.co/rhasspy/piper-voices/blob/main/vi/vi_VN/vais1000/medium/MODEL_CARD (dataset VAIS-1000, CC BY 4.0); thư viện MIT: https://github.com/diffusionstudio/vits-web . Mẫu giọng: https://k2-fsa.github.io/sherpa/onnx/tts/all/Vietnamese/vits-piper-vi_VN-vais1000-medium.html . Kiểm tra phát âm trước khi sử dụng với học sinh lớp 1.
-
-## Kiểm thử và deploy
-
-- Dùng Chrome/Edge bản mới trên máy tính và thử thêm điện thoại. Kiểm tra HTTPS khi deploy; HTTP qua IP LAN có thể không hỗ trợ OPFS.
-- DevTools Console: speechSynthesis.getVoices().filter(v => /^vi(?:[-_]|$)/i.test(v.lang)) ; nếu không có giọng vi, nút sẽ chuyển sang Piper. DevTools Network có thể dùng để xem tải model và runtime.
-- Khi đã tải, thử lại để kiểm tra cache, đổi bài và bấm Dừng để xác nhận không phát từ cũ. Kiểm tra âm lượng và phát âm có dấu.
-- Nếu CDN bị chặn, thiếu RAM/storage, trình duyệt không hỗ trợ hoặc tải chậm, dùng thiết bị khác hoặc upload bản thu giáo viên. Không bảo đảm giọng AI hoạt động trên mọi máy. Không có phí API, nhưng có tải mạng và tài nguyên thiết bị.
-- Backend Next.js không cần cài chương trình TTS nào. Các giới hạn upload video hiện tại vẫn áp dụng khi chọn hosting.
-
-Từ cũ, bản thu thủ công và dữ liệu Drive giữ nguyên. Không migration.
+Kiểm thử: tạo từ mới với cả ba media, kiểm tra thiếu audio bị từ chối, sửa mô tả giữ audio cũ, đổi chữ yêu cầu audio mới. Kiểm tra trang từ ban đầu không tải ảnh/video, mở từng nút, chuyển từ và kiểm tra âm thanh dừng. Kiểm tra trên điện thoại và máy tính trước khi sử dụng.
