@@ -17,7 +17,7 @@ Mở http://localhost:3000. Demo chỉ đọc, dùng emoji thay ảnh thật, kh
 
 ## Kết nối Drive thật
 
-Xem [hướng dẫn OAuth và triển khai](docs/google-drive-setup.md). Đặt DEMO_MODE=false, điền các biến Drive và mật khẩu trong .env.local hoặc môi trường hosting. Để tự tạo MP3, bật Text-to-Speech và cấu hình ADC theo [hướng dẫn giọng đọc](docs/text-to-speech-setup.md). Mật khẩu ít nhất 12 ký tự ASCII, không dùng mật khẩu Google. Không commit secret hay gửi qua chat. Thư mục đích là WordLearning mà chủ dự án cung cấp.
+Xem [hướng dẫn OAuth và triển khai](docs/google-drive-setup.md). Đặt DEMO_MODE=false, điền các biến Drive và mật khẩu trong .env.local hoặc môi trường hosting. Giọng đọc tự động không cần Google Cloud Billing, xem [hướng dẫn giọng đọc](docs/text-to-speech-setup.md). Mật khẩu ít nhất 12 ký tự ASCII, không dùng mật khẩu Google. Không commit secret hay gửi qua chat. Thư mục đích là WordLearning mà chủ dự án cung cấp.
 
 Không cần khởi tạo database bằng tay: bản ghi và media được tạo tự động khi lưu nội dung đầu tiên. Nếu chưa có dữ liệu, trang chủ sẽ hiển thị trạng thái trống.
 
@@ -26,7 +26,7 @@ Không cần khởi tạo database bằng tay: bản ghi và media được tạ
 - Học sinh: xem chủ đề, từ, hình ảnh, phát âm, video, từ trước/sau, luyện từng tiếng và ôn tập chọn hình (từ 3 từ/chủ đề).
 - Người lớn: tạo/sửa/xóa chủ đề và từ. Chủ đề phải trống trước khi xóa. Tạo mới yêu cầu ảnh bìa / ảnh và video; file audio tùy chọn. Sửa không cần tải lại file.
 - Chỉ dùng mật khẩu cho mỗi thao tác ghi. Không có account học sinh, cookie đăng nhập hay lưu mật khẩu phía client.
-- Phát âm: ưu tiên file thu âm; nếu không upload, backend tự tạo MP3 tiếng Việt qua Google Cloud Text-to-Speech và lưu trên Drive khi tạo từ, đổi tên từ hoặc sửa từ chưa có audio. Giữ audio cũ nếu chỉ sửa mô tả/ảnh/video, trừ khi chọn tạo lại. Từ cũ chưa cập nhật, demo và đọc từng tiếng riêng vẫn dùng giọng trình duyệt nếu có. Kiểm tra giọng đọc trước cuộc thi.
+- Phát âm: ưu tiên bản thu MP3/WAV nếu có; nếu không có, đọc trực tiếp bằng Web Speech API với giọng tiếng Việt của trình duyệt. Không sinh file hay gọi Cloud TTS. Khi đổi chữ, bỏ bản thu cũ nếu không có bản thu mới. Có thể bỏ bản thu bằng checkbox trong form sửa. Kiểm tra giọng đọc tiếng Việt trên thiết bị dự thi.
 - Hình ảnh và video do quản trị viên cung cấp; không tự tạo media AI. Giao diện nổi CSS, emoji dự phòng.
 
 ## Kiến trúc
