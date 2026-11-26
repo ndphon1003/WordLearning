@@ -1,7 +1,7 @@
 "use client";
 import {useEffect,useState,useCallback,useRef} from "react";
 import {selectVietnameseVoice} from "../lib/audio-policy.mjs";
-import {predictVietnamese} from "../lib/browser-tts";
+import {getCachedVietnamese,predictVietnamese} from "../lib/browser-tts";
 import Link from "next/link";
 import {colors,emojis,type Catalog,type Topic,type Word} from "../lib/model";
 import Admin from "./Admin";
@@ -13,6 +13,8 @@ function Art({src,emoji,label,large=false}:{src?:string;emoji:string;label:strin
 }
 // Shared stop handler: only one pronunciation plays at a time.
 let activePronunciation:(()=>void)|undefined;
+const SPEECH_RATE=0.65;
+const AUDIO_RATE=0.70;
 function Listen({word}:{word:Word}){
  const [message,setMessage]=useState("");
  const [phase,setPhase]=useState<"idle"|"loading"|"playing">("idle");
@@ -29,6 +31,22 @@ function Listen({word}:{word:Word}){
   return ()=>{engine.removeEventListener("voiceschanged",refresh);window.clearTimeout(retry);};
  },[]);
  useEffect(()=>()=>{ownStop.current?.();prepared.current=undefined;},[word.id,word.audio,word.text]);
+ // Prepare only the currently visible word, without autoplay, after allowing native voices to load.
+ useEffect(()=>{
+  if(word.audio)return;
+  let disposed=false;
+  const warm=window.setTimeout(()=>{
+   if(disposed)return;
+   const engine="speechSynthesis" in window?window.speechSynthesis:undefined;
+   if(engine&&selectVietnameseVoice(engine.getVoices()))return;
+   const cached=getCachedVietnamese(word.text);
+   if(cached){prepared.current={text:word.text,blob:cached};return;}
+   void predictVietnamese(word.text,()=>{}).then(blob=>{
+    if(!disposed)prepared.current={text:word.text,blob};
+   }).catch(()=>{/* The Listen button can retry; native speech remains available. */});
+  },350);
+  return ()=>{disposed=true;window.clearTimeout(warm);};
+ },[word.id,word.audio,word.text]);
  function speak(){
   activePronunciation?.();
   setMessage("");
@@ -58,35 +76,47 @@ function Listen({word}:{word:Word}){
   ownStop.current=stop;activePronunciation=stop;setPhase("loading");
   const playAudio=(url:string,error:string,generated=false)=>{
    if(cancelled)return;
-   audio=new Audio(url);audio.onended=()=>finish();audio.onerror=()=>finish(error);
+   audio=new Audio(url);audio.playbackRate=AUDIO_RATE;audio.preservesPitch=true;
+   audio.onended=()=>finish();audio.onerror=()=>finish(error);
    setPhase("playing");setMessage("");arm(30000,error);
    void audio.play().catch(()=>finish(generated?"Trình duyệt chưa cho phát âm thanh. Bé nhấn Nghe phát âm lần nữa nhé!":error));
   };
   if(word.audio){playAudio(word.audio,"Không phát được bản thu. Nhờ người lớn kiểm tra nhé!");return;}
   // Unlock playback within the click gesture, before the model download or synthesis.
   try{if(typeof AudioContext!=="undefined"){context=new AudioContext();void context.resume().catch(()=>{});}}catch{}
-  const playBlob=async(blob:Blob)=>{
+  const playBlob=(blob:Blob)=>{
    if(cancelled)return;
    prepared.current={text:word.text,blob};
-   try{
-    if(context&&context.state==="running"){
-     const buffer=await context.decodeAudioData(await blob.arrayBuffer());
-     if(cancelled)return;
-     source=context.createBufferSource();source.buffer=buffer;source.connect(context.destination);
-     source.onended=()=>finish();setPhase("playing");setMessage("");
-     arm(30000,"Giọng đọc chưa phản hồi. Bé thử lại nhé!");source.start();return;
-    }
-   }catch{if(cancelled)return;}
-   if(cancelled)return;
+   // HTML audio preserves pitch at slower speeds. Prefer it, especially for Vietnamese tones.
    objectUrl=URL.createObjectURL(blob);
-   playAudio(objectUrl,"Không phát được giọng đọc. Bé thử lại nhé!",true);
+   const element=new Audio(objectUrl);
+   audio=element;element.playbackRate=AUDIO_RATE;element.preservesPitch=true;
+   element.onended=()=>finish();
+   element.onerror=()=>finish("Không phát được giọng đọc. Bé thử lại nhé!");
+   setPhase("playing");setMessage("");arm(30000,"Giọng đọc chưa phản hồi. Bé thử lại nhé!");
+   void element.play().catch(async()=>{
+    if(cancelled)return;
+    // Some mobile browsers block delayed HTML audio; the click-unlocked context is a fallback.
+    element.onended=null;element.onerror=null;element.pause();
+    element.removeAttribute("src");element.load();audio=undefined;
+    try{
+     if(context&&context.state==="running"){
+      const buffer=await context.decodeAudioData(await blob.arrayBuffer());
+      if(cancelled)return;
+      source=context.createBufferSource();source.buffer=buffer;source.playbackRate.value=AUDIO_RATE;
+      source.connect(context.destination);source.onended=()=>finish();source.start();return;
+     }
+    }catch{if(cancelled)return;}
+    if(!cancelled)finish("Bé nhấn Nghe phát âm lần nữa nhé!");
+   });
   };
   const piperSpeech=()=>{
    if(cancelled||fallbackStarted)return;
    fallbackStarted=true;clearTimer();
    if(utterance){utterance.onend=null;utterance.onerror=null;utterance.onstart=null;window.speechSynthesis.cancel();utterance=undefined;}
    setPhase("loading");
-   if(prepared.current?.text===word.text){void playBlob(prepared.current.blob);return;}
+   const cached=prepared.current?.text===word.text?prepared.current.blob:getCachedVietnamese(word.text);
+   if(cached){playBlob(cached);return;}
    setMessage("Đang chuẩn bị giọng đọc tiếng Việt. Lần đầu cần tải model AI…");
    arm(180000,"Tải giọng đọc quá lâu. Bé thử lại khi mạng ổn định nhé!");
    void predictVietnamese(word.text,percent=>{
@@ -95,14 +125,14 @@ function Listen({word}:{word:Word}){
     if(!cancelled)finish("Chưa tải được giọng đọc tiếng Việt. Kiểm tra mạng, dùng Chrome/HTTPS hoặc nhờ người lớn thêm bản thu.");
    });
   };
-  if(prepared.current?.text===word.text){piperSpeech();return;}
+  if(prepared.current?.text===word.text||getCachedVietnamese(word.text)){piperSpeech();return;}
   const engine="speechSynthesis" in window?window.speechSynthesis:undefined;
   const voice=engine?selectVietnameseVoice(engine.getVoices())??availableVoice.current:undefined;
   if(!engine||!voice){piperSpeech();return;}
   try{
    engine.cancel();engine.resume();
    utterance=new SpeechSynthesisUtterance(word.text);
-   utterance.lang=voice.lang;utterance.voice=voice;utterance.rate=.8;
+   utterance.lang=voice.lang;utterance.voice=voice;utterance.rate=SPEECH_RATE;
    utterance.onend=()=>finish();
    utterance.onerror=()=>piperSpeech();
    utterance.onstart=()=>{setPhase("playing");arm(15000,"Giọng đọc chưa phản hồi. Bé thử lại nhé!");};
