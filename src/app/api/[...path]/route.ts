@@ -1,6 +1,4 @@
 import {catalog,deleteRecord,saveTopic,saveWord} from "../../../lib/catalog";
-import {liveSpeech} from "../../../lib/live-speech";
-import {demo} from "../../../lib/demo";
 import {entry,HttpError,streamMedia,type StoredTopic,type StoredWord} from "../../../lib/drive";
 import {form,guard,id,serial} from "../../../lib/security";
 export const runtime="nodejs";
@@ -11,17 +9,6 @@ function failure(error:unknown){if(error instanceof HttpError)return json({error
 export async function GET(req:Request,ctx:Context){
   try{
     const p=(await ctx.params).path;
-    if(p[0]==="speech"&&p.length===2){
-      const key=id(p[1]);
-      if(process.env.DEMO_MODE==="true"){
-        const word=demo.words.find(w=>w.id===key);
-        if(!word)throw new HttpError(404,"Không tìm thấy từ ngữ.");
-        return await liveSpeech(word.text);
-      }
-      const word=(await entry<StoredWord>("word",key)).value;
-      await entry<StoredTopic>("topic",word.topicId);
-      return await liveSpeech(word.text);
-    }
     if(p[0]==="media"&&p.length===4){
       if(process.env.DEMO_MODE==="true")throw new HttpError(404,"Demo không có tệp media.");
       const key=id(p[2]);const slot=p[3];let file:string|undefined;
