@@ -1,21 +1,30 @@
 # Giọng đọc tiếng Việt miễn phí
 
-Mỗi từ chỉ có một nút Nghe phát âm. Nếu có bản thu MP3/WAV, phát bản thu. Nếu không, ưu tiên Web Speech API với giọng vi của trình duyệt; nếu thiếu giọng hoặc lỗi, gọi GET /api/speech/:wordId để eSpeak NG đọc trực tiếp. Không có Cloud TTS, Billing, API key hoặc file audio tự tạo khi lưu từ. Âm thanh WAV từ eSpeak được trả trong bộ nhớ, không lưu file trên server hoặc Drive. Giọng eSpeak nghe máy hơn Google Dịch; nên nghe thử trước khi dạy trẻ.
+WordLearning có một nút Nghe phát âm cho cả từ, không đọc từng tiếng riêng. Nếu từ có bản thu MP3/WAV, phát bản thu. Nếu không, thử Web Speech API bằng giọng tiếng Việt; nếu thiếu giọng hoặc lỗi, tải và chạy Piper/VITS trên trình duyệt bằng ONNX Runtime Web. Không dùng Google Cloud TTS, Billing, API key, eSpeak NG trên server hoặc endpoint nội bộ Google Dịch.
 
-## Windows: cài phương án dự phòng một lần
+## Chạy local
 
-1. Tải bản Windows tại https://github.com/espeak-ng/espeak-ng/releases (MSI phù hợp kiến trúc máy). Cài đặt.
-2. Mở PowerShell mới; kiểm tra `espeak-ng --version` và `espeak-ng -v vi "Con chó"`.
-3. Nếu chưa có trong PATH, tìm espeak-ng.exe ở thư mục đã cài, bổ sung đường dẫn thật vào .env.local, ví dụ:
+Sau khi pull, chạy:
 
-```dotenv
-ESPEAK_NG_PATH="C:/Program Files/eSpeak NG/espeak-ng.exe"
+```powershell
+npm install
+npm run dev
 ```
 
-4. Giữ nguyên OAuth Drive, dừng và chạy lại npm run dev. Khi truy cập từ thiết bị khác, server vẫn có thể đọc cho thiết bị đó, không cần cài eSpeak trên từng máy. Khi deploy cần cài eSpeak NG trên server hosting (Linux: apt install espeak-ng).
+Giữ nguyên các biến môi trường Google Drive. Không cần ESPEAK_NG_PATH, GOOGLE_CLOUD_PROJECT_ID hay GOOGLE_TTS_VOICE. Nếu đã thêm chúng trước đó, có thể xóa. Vào /admin, thêm từ ngữ, ảnh và video, bỏ trống audio. Mở bài học và bấm Nghe phát âm.
 
-Không cần cấu hình ESPEAK_NG_PATH nếu executable đã nằm trong PATH. Chỉ nội dung từ ngữ đã công bố được đọc; API không nhận văn bản tùy ý. Nếu không cài eSpeak và thiết bị thiếu giọng vi, nút sẽ báo lỗi; tải bản thu giáo viên nếu không muốn cài công cụ. Không dùng endpoint Google Dịch không chính thức.
+## Model AI
 
-## Kiểm tra giọng trình duyệt
+Dùng @diffusionstudio/vits-web 1.0.3, voice vi_VN-vais1000-medium. Model khoảng 63 MB; thư viện tải model từ Hugging Face và runtime từ các CDN được cấu hình bởi thư viện. Trình duyệt cần Internet ở lần đầu và môi trường secure context (localhost hoặc HTTPS), WebAssembly và Origin Private File System (OPFS). Model có thể được cache theo origin của website; trình duyệt có thể xóa cache. Chỉ tải model khi cần fallback, hiển thị tiến độ nếu có. Văn bản được tổng hợp tại thiết bị, audio chỉ ở bộ nhớ; không lưu audio xuống Drive hoặc filesystem. Trên một số thiết bị, chính sách autoplay có thể yêu cầu bấm nghe lần nữa. Nếu hủy, kết quả đang tạo sẽ không phát; tiến trình tải/inference của thư viện có thể vẫn hoàn thành.
 
-DevTools Console: `speechSynthesis.getVoices().filter(v => /^vi(?:[-_]|$)/i.test(v.lang))`. Đợi vài giây và thử lại nếu rỗng. Không đọc bằng giọng ngoại ngữ. Thử trên thiết bị dự thi để kiểm tra chất lượng phát âm. Dữ liệu cũ giữ nguyên, không migration.
+Nguồn model: https://huggingface.co/rhasspy/piper-voices/blob/main/vi/vi_VN/vais1000/medium/MODEL_CARD (dataset VAIS-1000, CC BY 4.0); thư viện MIT: https://github.com/diffusionstudio/vits-web . Mẫu giọng: https://k2-fsa.github.io/sherpa/onnx/tts/all/Vietnamese/vits-piper-vi_VN-vais1000-medium.html . Kiểm tra phát âm trước khi sử dụng với học sinh lớp 1.
+
+## Kiểm thử và deploy
+
+- Dùng Chrome/Edge bản mới trên máy tính và thử thêm điện thoại. Kiểm tra HTTPS khi deploy; HTTP qua IP LAN có thể không hỗ trợ OPFS.
+- DevTools Console: speechSynthesis.getVoices().filter(v => /^vi(?:[-_]|$)/i.test(v.lang)) ; nếu không có giọng vi, nút sẽ chuyển sang Piper. DevTools Network có thể dùng để xem tải model và runtime.
+- Khi đã tải, thử lại để kiểm tra cache, đổi bài và bấm Dừng để xác nhận không phát từ cũ. Kiểm tra âm lượng và phát âm có dấu.
+- Nếu CDN bị chặn, thiếu RAM/storage, trình duyệt không hỗ trợ hoặc tải chậm, dùng thiết bị khác hoặc upload bản thu giáo viên. Không bảo đảm giọng AI hoạt động trên mọi máy. Không có phí API, nhưng có tải mạng và tài nguyên thiết bị.
+- Backend Next.js không cần cài chương trình TTS nào. Các giới hạn upload video hiện tại vẫn áp dụng khi chọn hosting.
+
+Từ cũ, bản thu thủ công và dữ liệu Drive giữ nguyên. Không migration.
