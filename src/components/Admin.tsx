@@ -37,8 +37,9 @@ export default function Admin({data,reload}:{data:Catalog;reload:()=>Promise<voi
  <label>Biểu tượng dự phòng<select name="emoji" defaultValue={w?.emoji??emojis[0]}>{emojis.map(e=><option key={e}>{e}</option>)}</select></label>
  <label>Hình ảnh (tối đa 5 MB)<input type="file" name="image" accept={acceptImage} required={!w}/></label>
  <label>Video MP4 (tối đa 30 MB)<input type="file" name="video" accept="video/mp4" required={!w}/></label>
- <label>Giọng đọc MP3/WAV (tùy chọn, tối đa 5 MB)<input type="file" name="audio" accept="audio/mpeg,audio/wav"/><small>Không tải audio thì dùng giọng tiếng Việt của thiết bị.</small></label>
- {w?.audio&&<label className="check"><input type="checkbox" name="removeAudio" value="true"/> Bỏ bản thu hiện tại, dùng giọng tự động</label>}
+ <label>Giọng đọc MP3/WAV (tùy chọn, tối đa 5 MB)<input type="file" name="audio" accept="audio/mpeg,audio/wav"/><small>Không tải audio thì hệ thống tự tạo MP3 tiếng Việt khi lưu. Khi đổi từ ngữ, hệ thống tự tạo bản đọc mới.</small></label>
+ {w&&!w.audio&&<small>Từ này chưa có MP3. Nhấn lưu để tạo tự động, không cần tải lại ảnh/video.</small>}
+ {w?.audio&&<label className="check"><input type="checkbox" name="regenerateAudio" value="true"/> Tạo lại MP3 tự động (thay bản thu hiện tại)</label>}
  </>}
  <label>Mật khẩu quản trị<input name="password" type="password" autoComplete="off" required maxLength={256}/></label>
  <div className="admin-actions"><button className={"button "+(deleting?"red":"blue")} disabled={busy||data.demo||(edit.kind==="words"&&!data.topics.length&&!deleting)} type="submit">{busy?"Đang xử lý…":deleting?"Xác nhận xóa":"Lưu nội dung"}</button>{deleting&&<button type="button" className="pill" onClick={()=>setDeleting(null)}>Hủy</button>}</div>
