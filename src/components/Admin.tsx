@@ -37,10 +37,8 @@ export default function Admin({data,reload}:{data:Catalog;reload:()=>Promise<voi
  <label>Biểu tượng dự phòng<select name="emoji" defaultValue={w?.emoji??emojis[0]}>{emojis.map(e=><option key={e}>{e}</option>)}</select></label>
  <label>Hình ảnh (tối đa 5 MB)<input type="file" name="image" accept={acceptImage} required={!w}/></label>
  <label>Video MP4 (tối đa 30 MB)<input type="file" name="video" accept="video/mp4" required={!w}/></label>
- <label>Giọng đọc MP3/WAV (tùy chọn, tối đa 5 MB)<input type="file" name="audio" accept="audio/mpeg,audio/wav"/><small>Không tải audio thì trình duyệt tự đọc tiếng Việt khi bé nhấn nghe (nếu thiết bị hỗ trợ). Không sinh file, không mất phí API.</small></label>
- {w&&!w.audio&&<small>Đang sử dụng giọng đọc tự động của trình duyệt.</small>}
- {w?.audio&&<small>Nếu đổi từ ngữ mà không tải bản thu mới, hệ thống bỏ bản thu cũ để tránh đọc sai từ.</small>}
- {w?.audio&&<label className="check"><input type="checkbox" name="removeAudio" value="true"/> Bỏ bản thu hiện tại, dùng giọng đọc tự động</label>}
+ <label>Bản thu âm MP3/WAV (tối đa 5 MB)<input type="file" name="audio" accept="audio/mpeg,audio/wav,.mp3,.wav" required={!w?.audio}/><small>{w?.audio?"Để trống để giữ bản thu hiện tại. Nếu đổi từ ngữ, cần tải bản thu mới.":"Bắt buộc tải bản thu phát âm rõ ràng của từ ngữ. Hệ thống không tự tạo giọng đọc."}</small></label>
+ {w?.audio&&<div><small>Bản thu hiện tại:</small><audio controls preload="none" src={w.audio}/></div>}
  </>}
  <label>Mật khẩu quản trị<input name="password" type="password" autoComplete="off" required maxLength={256}/></label>
  <div className="admin-actions"><button className={"button "+(deleting?"red":"blue")} disabled={busy||data.demo||(edit.kind==="words"&&!data.topics.length&&!deleting)} type="submit">{busy?"Đang xử lý…":deleting?"Xác nhận xóa":"Lưu nội dung"}</button>{deleting&&<button type="button" className="pill" onClick={()=>setDeleting(null)}>Hủy</button>}</div>
