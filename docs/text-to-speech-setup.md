@@ -1,15 +1,21 @@
 # Giọng đọc tiếng Việt miễn phí
 
-WordLearning sử dụng Web Speech API của trình duyệt khi không có bản thu. Không tạo file MP3 tự động, không gọi Google Cloud Text-to-Speech và không cần Billing, Google Cloud CLI hoặc credentials bổ sung. Giữ nguyên các biến môi trường Google Drive và mật khẩu.
+Mỗi từ chỉ có một nút Nghe phát âm. Nếu có bản thu MP3/WAV, phát bản thu. Nếu không, ưu tiên Web Speech API với giọng vi của trình duyệt; nếu thiếu giọng hoặc lỗi, gọi GET /api/speech/:wordId để eSpeak NG đọc trực tiếp. Không có Cloud TTS, Billing, API key hoặc file audio tự tạo khi lưu từ. Âm thanh WAV từ eSpeak được trả trong bộ nhớ, không lưu file trên server hoặc Drive. Giọng eSpeak nghe máy hơn Google Dịch; nên nghe thử trước khi dạy trẻ.
 
-- Tạo từ: tải ảnh và video, bỏ trống audio; học sinh nhấn Nghe phát âm để trình duyệt đọc từ (vi-VN, tốc độ 0.8).
-- Từ có bản thu MP3/WAV: dùng bản thu cho cả từ; các nút đọc từng tiếng vẫn dùng giọng trình duyệt.
-- Sửa mô tả, ảnh hoặc video: giữ bản thu.
-- Đổi từ ngữ hoặc chọn Bỏ bản thu: chuyển sang đọc tự động nếu không tải bản thu mới. File cũ được đưa vào Trash sau khi bản ghi được lưu.
-- Dữ liệu đã có tương thích; không cần migration hay tạo lại dữ liệu. Các MP3 từng được tạo trước đây vẫn dùng được.
+## Windows: cài phương án dự phòng một lần
 
-## Kiểm tra giọng tiếng Việt
+1. Tải bản Windows tại https://github.com/espeak-ng/espeak-ng/releases (MSI phù hợp kiến trúc máy). Cài đặt.
+2. Mở PowerShell mới; kiểm tra `espeak-ng --version` và `espeak-ng -v vi "Con chó"`.
+3. Nếu chưa có trong PATH, tìm espeak-ng.exe ở thư mục đã cài, bổ sung đường dẫn thật vào .env.local, ví dụ:
 
-Mở DevTools Console, chạy `speechSynthesis.getVoices().filter(v => /^vi(?:[-_]|$)/i.test(v.lang))`. Danh sách giọng có thể tải bất đồng bộ; đợi vài giây rồi kiểm tra lại. Nếu vẫn trống, trình duyệt/thiết bị chưa cung cấp giọng tiếng Việt. Có thể thử trình duyệt khác hoặc kiểm tra gói giọng đọc tiếng Việt trong hệ điều hành. Cài ngôn ngữ hiển thị không bảo đảm có giọng TTS. Không tự đọc bằng giọng ngoại ngữ vì ứng dụng dành cho học sinh lớp 1. Nếu không hỗ trợ, tải bản thu MP3/WAV do giáo viên thu âm.
+```dotenv
+ESPEAK_NG_PATH="C:/Program Files/eSpeak NG/espeak-ng.exe"
+```
 
-Thử trên máy và trình duyệt dùng khi dự thi. Giọng đọc phụ thuộc thiết bị, có thể cần Internet nếu giọng được cung cấp trực tuyến. Nếu trước đó đã bật Cloud TTS/Billing, thay đổi code không tự tắt dịch vụ trên Google Cloud; có thể tắt riêng Cloud Text-to-Speech API, nhưng giữ Google Drive API.
+4. Giữ nguyên OAuth Drive, dừng và chạy lại npm run dev. Khi truy cập từ thiết bị khác, server vẫn có thể đọc cho thiết bị đó, không cần cài eSpeak trên từng máy. Khi deploy cần cài eSpeak NG trên server hosting (Linux: apt install espeak-ng).
+
+Không cần cấu hình ESPEAK_NG_PATH nếu executable đã nằm trong PATH. Chỉ nội dung từ ngữ đã công bố được đọc; API không nhận văn bản tùy ý. Nếu không cài eSpeak và thiết bị thiếu giọng vi, nút sẽ báo lỗi; tải bản thu giáo viên nếu không muốn cài công cụ. Không dùng endpoint Google Dịch không chính thức.
+
+## Kiểm tra giọng trình duyệt
+
+DevTools Console: `speechSynthesis.getVoices().filter(v => /^vi(?:[-_]|$)/i.test(v.lang))`. Đợi vài giây và thử lại nếu rỗng. Không đọc bằng giọng ngoại ngữ. Thử trên thiết bị dự thi để kiểm tra chất lượng phát âm. Dữ liệu cũ giữ nguyên, không migration.
