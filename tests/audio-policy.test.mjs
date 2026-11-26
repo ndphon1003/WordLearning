@@ -1,14 +1,22 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
-import {audioAction} from "../src/lib/audio-policy.mjs";
-const base={previousText:"Con chó",text:"Con chó",hasAudio:true,uploaded:false,regenerate:false};
-test("new word or legacy word with no audio generates MP3",()=>{
- assert.equal(audioAction({...base,previousText:undefined,hasAudio:false}),"generate");
- assert.equal(audioAction({...base,hasAudio:false}),"generate");
+import {audioAction,selectVietnameseVoice} from "../src/lib/audio-policy.mjs";
+const base={previousText:"Con chó",text:"Con chó",hasAudio:true,uploaded:false,remove:false};
+test("new or legacy word without recording uses browser speech",()=>{
+ assert.equal(audioAction({...base,previousText:undefined,hasAudio:false}),"speech");
+ assert.equal(audioAction({...base,hasAudio:false}),"speech");
 });
-test("unchanged word keeps existing audio",()=>assert.equal(audioAction(base),"keep"));
-test("changed text and explicit regeneration require new audio",()=>{
- assert.equal(audioAction({...base,text:"Con mèo"}),"generate");
- assert.equal(audioAction({...base,regenerate:true}),"generate");
+test("unchanged word keeps recording",()=>assert.equal(audioAction(base),"keep"));
+test("changed word or removal drops stale recording",()=>{
+ assert.equal(audioAction({...base,text:"Con mèo"}),"drop");
+ assert.equal(audioAction({...base,remove:true}),"drop");
 });
-test("manual audio always wins",()=>assert.equal(audioAction({...base,uploaded:true,regenerate:true,text:"Con mèo"}),"upload"));
+test("manual upload wins",()=>assert.equal(audioAction({...base,uploaded:true,remove:true,text:"Con mèo"}),"upload"));
+test("voice selection never falls back to unrelated language",()=>{
+ assert.equal(selectVietnameseVoice([]),undefined);
+ assert.equal(selectVietnameseVoice([{lang:"en-US"},{lang:"fil-PH"}]),undefined);
+ const remote={lang:"vi-VN",localService:false},local={lang:"vi_VN",localService:true};
+ assert.equal(selectVietnameseVoice([{lang:"en-US"},remote,local]),local);
+ assert.equal(selectVietnameseVoice([remote]),remote);
+ assert.equal(selectVietnameseVoice([{lang:"vi"}]).lang,"vi");
+});
