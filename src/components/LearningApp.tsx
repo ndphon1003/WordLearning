@@ -1,6 +1,7 @@
 "use client";
 import {useEffect,useState,useCallback,useRef} from "react";
 import {selectVietnameseVoice} from "../lib/audio-policy.mjs";
+import {predictVietnamese} from "../lib/browser-tts";
 import Link from "next/link";
 import {colors,emojis,type Catalog,type Topic,type Word} from "../lib/model";
 import Admin from "./Admin";
@@ -14,10 +15,10 @@ function Art({src,emoji,label,large=false}:{src?:string;emoji:string;label:strin
 let activePronunciation:(()=>void)|undefined;
 function Listen({word}:{word:Word}){
  const [message,setMessage]=useState("");
- const [playing,setPlaying]=useState(false);
+ const [phase,setPhase]=useState<"idle"|"loading"|"playing">("idle");
  const ownStop=useRef<(()=>void)|undefined>(undefined);
  const availableVoice=useRef<SpeechSynthesisVoice|undefined>(undefined);
- const preferServer=useRef(false);
+ const prepared=useRef<{text:string;blob:Blob}|undefined>(undefined);
  useEffect(()=>{
   if(!("speechSynthesis" in window))return;
   const engine=window.speechSynthesis;
@@ -27,65 +28,89 @@ function Listen({word}:{word:Word}){
   const retry=window.setTimeout(refresh,1000);
   return ()=>{engine.removeEventListener("voiceschanged",refresh);window.clearTimeout(retry);};
  },[]);
- useEffect(()=>()=>{ownStop.current?.();},[word.id,word.audio,word.text]);
+ useEffect(()=>()=>{ownStop.current?.();prepared.current=undefined;},[word.id,word.audio,word.text]);
  function speak(){
   activePronunciation?.();
   setMessage("");
   let cancelled=false;
+  let fallbackStarted=false;
   let audio:HTMLAudioElement|undefined;
   let utterance:SpeechSynthesisUtterance|undefined;
+  let context:AudioContext|undefined;
+  let source:AudioBufferSourceNode|undefined;
+  let objectUrl:string|undefined;
   let timer:number|undefined;
+  const clearTimer=()=>{if(timer!==undefined){window.clearTimeout(timer);timer=undefined;}};
   const finish=(error?:string)=>{
    if(cancelled)return;
-   cancelled=true;
-   if(timer!==undefined)window.clearTimeout(timer);
+   cancelled=true;clearTimer();
    if(audio){audio.onended=null;audio.onerror=null;audio.pause();audio.removeAttribute("src");audio.load();}
+   if(source){source.onended=null;try{source.stop();}catch{}source.disconnect();}
+   if(context)void context.close().catch(()=>{});
+   if(objectUrl)URL.revokeObjectURL(objectUrl);
    if(utterance){utterance.onend=null;utterance.onerror=null;utterance.onstart=null;window.speechSynthesis.cancel();}
    if(activePronunciation===stop)activePronunciation=undefined;
    if(ownStop.current===stop)ownStop.current=undefined;
-   setPlaying(false);
-   if(error)setMessage(error);
+   setPhase("idle");setMessage(error??"");
   };
   const stop=()=>finish();
-  const register=()=>{ownStop.current=stop;activePronunciation=stop;setPlaying(true);timer=window.setTimeout(()=>finish("Giọng đọc chưa phản hồi. Bé thử lại nhé!"),15000);};
-  const playAudio=(url:string,missing:string)=>{
-   audio=new Audio(url);
-   audio.onended=()=>finish();
-   audio.onerror=()=>finish(missing);
-   void audio.play().catch(()=>finish(missing));
-  };
-  const serverSpeech=()=>{
+  const arm=(ms:number,error:string)=>{clearTimer();timer=window.setTimeout(()=>finish(error),ms);};
+  ownStop.current=stop;activePronunciation=stop;setPhase("loading");
+  const playAudio=(url:string,error:string,generated=false)=>{
    if(cancelled)return;
-   preferServer.current=true;
-   if(utterance){
-    utterance.onend=null;utterance.onerror=null;utterance.onstart=null;
-    window.speechSynthesis.cancel();utterance=undefined;
-   }
-   playAudio("/api/speech/"+encodeURIComponent(word.id),"Chưa phát được tiếng Việt. Nhờ người lớn cài eSpeak NG theo hướng dẫn hoặc thêm bản thu nhé!");
+   audio=new Audio(url);audio.onended=()=>finish();audio.onerror=()=>finish(error);
+   setPhase("playing");setMessage("");arm(30000,error);
+   void audio.play().catch(()=>finish(generated?"Trình duyệt chưa cho phát âm thanh. Bé nhấn Nghe phát âm lần nữa nhé!":error));
   };
-  register();
   if(word.audio){playAudio(word.audio,"Không phát được bản thu. Nhờ người lớn kiểm tra nhé!");return;}
+  // Unlock playback within the click gesture, before the model download or synthesis.
+  try{if(typeof AudioContext!=="undefined"){context=new AudioContext();void context.resume().catch(()=>{});}}catch{}
+  const playBlob=async(blob:Blob)=>{
+   if(cancelled)return;
+   prepared.current={text:word.text,blob};
+   try{
+    if(context&&context.state==="running"){
+     const buffer=await context.decodeAudioData(await blob.arrayBuffer());
+     if(cancelled)return;
+     source=context.createBufferSource();source.buffer=buffer;source.connect(context.destination);
+     source.onended=()=>finish();setPhase("playing");setMessage("");
+     arm(30000,"Giọng đọc chưa phản hồi. Bé thử lại nhé!");source.start();return;
+    }
+   }catch{if(cancelled)return;}
+   if(cancelled)return;
+   objectUrl=URL.createObjectURL(blob);
+   playAudio(objectUrl,"Không phát được giọng đọc. Bé thử lại nhé!",true);
+  };
+  const piperSpeech=()=>{
+   if(cancelled||fallbackStarted)return;
+   fallbackStarted=true;clearTimer();
+   if(utterance){utterance.onend=null;utterance.onerror=null;utterance.onstart=null;window.speechSynthesis.cancel();utterance=undefined;}
+   setPhase("loading");
+   if(prepared.current?.text===word.text){void playBlob(prepared.current.blob);return;}
+   setMessage("Đang chuẩn bị giọng đọc tiếng Việt. Lần đầu cần tải model AI…");
+   arm(180000,"Tải giọng đọc quá lâu. Bé thử lại khi mạng ổn định nhé!");
+   void predictVietnamese(word.text,percent=>{
+    if(!cancelled)setMessage(percent===undefined?"Đang chuẩn bị giọng đọc…":percent<100?"Đang tải giọng đọc: "+percent+"%":"Đang tạo giọng đọc…");
+   }).then(blob=>playBlob(blob)).catch(()=>{
+    if(!cancelled)finish("Chưa tải được giọng đọc tiếng Việt. Kiểm tra mạng, dùng Chrome/HTTPS hoặc nhờ người lớn thêm bản thu.");
+   });
+  };
+  if(prepared.current?.text===word.text){piperSpeech();return;}
   const engine="speechSynthesis" in window?window.speechSynthesis:undefined;
   const voice=engine?selectVietnameseVoice(engine.getVoices())??availableVoice.current:undefined;
-  if(!engine||!voice||preferServer.current){serverSpeech();return;}
+  if(!engine||!voice){piperSpeech();return;}
   try{
    engine.cancel();engine.resume();
    utterance=new SpeechSynthesisUtterance(word.text);
    utterance.lang=voice.lang;utterance.voice=voice;utterance.rate=.8;
    utterance.onend=()=>finish();
-   utterance.onerror=()=>serverSpeech();
-   utterance.onstart=()=>{
-    if(timer!==undefined)window.clearTimeout(timer);
-    timer=window.setTimeout(()=>finish("Giọng đọc chưa phản hồi. Bé thử lại nhé!"),15000);
-   };
-   if(timer!==undefined)window.clearTimeout(timer);
-   timer=window.setTimeout(()=>{
-    if(!cancelled){timer=window.setTimeout(()=>finish("Giọng đọc chưa phản hồi. Bé thử lại nhé!"),15000);serverSpeech();}
-   },2500);
+   utterance.onerror=()=>piperSpeech();
+   utterance.onstart=()=>{setPhase("playing");arm(15000,"Giọng đọc chưa phản hồi. Bé thử lại nhé!");};
+   timer=window.setTimeout(piperSpeech,2500);
    engine.speak(utterance);
-  }catch{serverSpeech();}
+  }catch{piperSpeech();}
  }
- return <div className="listen"><button className="button blue" onClick={playing?()=>ownStop.current?.():speak} aria-label={playing?"Dừng phát âm":"Nghe phát âm"}>{playing?"⏹ Dừng":"🔊 Nghe phát âm"}</button>{message&&<p className="small" role="status">{message}</p>}</div>;
+ return <div className="listen"><button className="button blue" onClick={phase==="idle"?speak:()=>ownStop.current?.()} aria-label={phase==="idle"?"Nghe phát âm":"Dừng phát âm"}>{phase==="loading"?"⏳ Đang chuẩn bị… (Dừng)":phase==="playing"?"⏹ Dừng":"🔊 Nghe phát âm"}</button>{message&&<p className="small" role="status">{message}</p>}</div>;
 }
 export default function LearningApp({view}:Props){
  const [data,setData]=useState<Catalog|null>(null),[error,setError]=useState("");
