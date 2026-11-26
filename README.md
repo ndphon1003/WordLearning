@@ -23,10 +23,10 @@ Không cần khởi tạo database bằng tay: bản ghi và media được tạ
 
 ## Nghiệp vụ
 
-- Học sinh: xem chủ đề, từ, hình ảnh, phát âm, video, từ trước/sau, luyện từng tiếng và ôn tập chọn hình (từ 3 từ/chủ đề).
+- Học sinh: xem chủ đề, từ, hình ảnh, phát âm, video, từ trước/sau, ôn tập chọn hình (từ 3 từ/chủ đề).
 - Người lớn: tạo/sửa/xóa chủ đề và từ. Chủ đề phải trống trước khi xóa. Tạo mới yêu cầu ảnh bìa / ảnh và video; file audio tùy chọn. Sửa không cần tải lại file.
 - Chỉ dùng mật khẩu cho mỗi thao tác ghi. Không có account học sinh, cookie đăng nhập hay lưu mật khẩu phía client.
-- Phát âm: ưu tiên bản thu MP3/WAV nếu có; nếu không có, đọc trực tiếp bằng Web Speech API với giọng tiếng Việt của trình duyệt. Không sinh file hay gọi Cloud TTS. Khi đổi chữ, bỏ bản thu cũ nếu không có bản thu mới. Có thể bỏ bản thu bằng checkbox trong form sửa. Kiểm tra giọng đọc tiếng Việt trên thiết bị dự thi.
+- Phát âm: ưu tiên bản thu MP3/WAV nếu có; nếu không có, đọc trực tiếp bằng Web Speech API với giọng tiếng Việt của trình duyệt. Nếu không có giọng tiếng Việt hoặc trình duyệt lỗi, thử eSpeak NG trên server (cài miễn phí một lần, xem hướng dẫn). Chỉ trả audio WAV trong bộ nhớ khi nhấn nghe, không ghi Drive hay gọi Cloud TTS. Khi đổi chữ, bỏ bản thu cũ nếu không có bản thu mới. Có thể bỏ bản thu bằng checkbox trong form sửa. Kiểm tra giọng đọc tiếng Việt trên thiết bị dự thi.
 - Hình ảnh và video do quản trị viên cung cấp; không tự tạo media AI. Giao diện nổi CSS, emoji dự phòng.
 
 ## Kiến trúc
