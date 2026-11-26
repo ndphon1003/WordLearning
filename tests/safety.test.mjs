@@ -19,45 +19,28 @@ test("media API checks published record and Drive folder",()=>{
  assert.match(drive,/ownerId!==ownerId/);
  assert.match(drive,/slot!==slot/);
 });
-test("browser speech does not require cloud TTS",()=>{
- const env=read(".env.example"),catalog=read("src/lib/catalog.ts"),learning=read("src/components/LearningApp.tsx");
- assert.doesNotMatch(env,/GOOGLE_CLOUD_PROJECT_ID|GOOGLE_TTS_VOICE|GOOGLE_APPLICATION_CREDENTIALS/);
- assert.doesNotMatch(catalog,/synthesizeVietnamese|from "\.\/tts"/);
- assert.match(learning,/SpeechSynthesisUtterance/);
- assert.match(learning,/voiceschanged/);
- assert.match(learning,/selectVietnameseVoice/);
+test("manual audio only, without generated speech or special bundler aliases",()=>{
+ const env=read(".env.example"),catalog=read("src/lib/catalog.ts"),learning=read("src/components/LearningApp.tsx"),admin=read("src/components/Admin.tsx");
+ const pkg=JSON.parse(read("package.json")),config=read("next.config.ts");
+ assert.equal(pkg.dependencies["@diffusionstudio/vits-web"],undefined);
+ assert.doesNotMatch(env,/GOOGLE_CLOUD_PROJECT_ID|GOOGLE_TTS_VOICE|ESPEAK_NG_PATH/);
+ assert.doesNotMatch(learning,/SpeechSynthesisUtterance|speechSynthesis|predictVietnamese|browser-tts/);
+ assert.doesNotMatch(config,/empty-node-module/);
+ assert.match(learning,/new Audio\(word.audio\)/);
+ assert.match(learning,/audio.playbackRate=1/);
+ assert.match(catalog,/action==="required"/);
+ assert.match(admin,/required=\{!w\?\.audio\}/);
 });
-test("whole-word Piper fallback runs in browser only",()=>{
- const api=read("src/app/api/[...path]/route.ts"),tts=read("src/lib/browser-tts.ts"),learning=read("src/components/LearningApp.tsx");
- const env=read(".env.example"),pkg=JSON.parse(read("package.json"));
- assert.equal(pkg.dependencies["@diffusionstudio/vits-web"],"1.0.3");
- assert.match(tts,/import\("@diffusionstudio\/vits-web"\)/);
- assert.match(tts,/vi_VN-vais1000-medium/);
- assert.match(tts,/tts\.predict/);
- assert.doesNotMatch(tts,/writeFile|addMedia|texttospeech.googleapis/);
- assert.doesNotMatch(api,/liveSpeech|p\[0\]==="speech"/);
- assert.doesNotMatch(env,/ESPEAK_NG_PATH/);
- assert.doesNotMatch(learning,/Đọc từng tiếng|part=\{part\}|\/api\/speech\//);
- assert.match(learning,/SpeechSynthesisUtterance\(word.text\)/);
- assert.match(learning,/predictVietnamese\(word.text/);
- assert.match(learning,/URL.revokeObjectURL/);
-});
-
-test("Turbopack aliases Piper Node-only dependencies for browser builds only",()=>{
- const config=read("next.config.ts");
- assert.match(config,/turbopack:\s*\{/);
- assert.match(config,/fs:\s*\{\s*browser:/);
- assert.match(config,/path:\s*\{\s*browser:/);
- assert.match(read("src/lib/empty-node-module.ts"),/export \{\}/);
-});
-
-test("pronunciation is prewarmed, bounded in memory and played slowly",()=>{
- const tts=read("src/lib/browser-tts.ts"),learning=read("src/components/LearningApp.tsx");
- assert.match(tts,/MAX_CACHE_BYTES=4\*1024\*1024/);
- assert.match(tts,/cache\.size>12/);
- assert.match(learning,/SPEECH_RATE=0\.65/);
- assert.match(learning,/AUDIO_RATE=0\.70/);
- assert.match(learning,/element\.preservesPitch=true/);
- assert.match(learning,/getCachedVietnamese\(word\.text\)/);
- assert.match(learning,/predictVietnamese\(word\.text,\(\)=>\{\}\)/);
+test("lesson media starts hidden, opens only on user selection and resets per word",()=>{
+ const ui=read("src/components/LearningApp.tsx");
+ const media=ui.slice(ui.indexOf("function WordMedia("),ui.indexOf("export default function LearningApp"));
+ assert.match(media,/useState<"image"\|"video"\|null>\(null\)/);
+ assert.match(media,/onClick=\{\(\)=>toggle\("image"\)\}/);
+ assert.match(media,/onClick=\{\(\)=>toggle\("video"\)\}/);
+ assert.match(media,/panel==="image"&&<section/);
+ assert.match(media,/panel==="video"&&<section/);
+ assert.doesNotMatch(media,/autoPlay/);
+ assert.match(ui,/<WordMedia key=\{word.id\} word=\{word\}/);
+ const list=ui.slice(ui.indexOf('<div className="cards">{words.map'),ui.indexOf('view[0]==="topics"&&view[2]==="words"'));
+ assert.doesNotMatch(list,/<Art|<video/);
 });
