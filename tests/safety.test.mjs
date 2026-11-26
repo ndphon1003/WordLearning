@@ -27,3 +27,13 @@ test("browser speech does not require cloud TTS",()=>{
  assert.match(learning,/voiceschanged/);
  assert.match(learning,/selectVietnameseVoice/);
 });
+test("whole-word live speech does not store generated audio",()=>{
+ const api=read("src/app/api/[...path]/route.ts"),live=read("src/lib/live-speech.ts"),learning=read("src/components/LearningApp.tsx");
+ assert.match(api,/p\[0\]==="speech"/);
+ assert.match(api,/entry<StoredWord>\("word",key\)/);
+ assert.match(live,/shell:false/);
+ assert.match(live,/--stdout/);
+ assert.doesNotMatch(live,/writeFile|addMedia|texttospeech.googleapis/);
+ assert.doesNotMatch(learning,/Đọc từng tiếng|part=\{part\}/);
+ assert.match(learning,/SpeechSynthesisUtterance\(word.text\)/);
+});
