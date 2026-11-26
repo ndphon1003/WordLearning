@@ -42,3 +42,11 @@ test("whole-word Piper fallback runs in browser only",()=>{
  assert.match(learning,/predictVietnamese\(word.text/);
  assert.match(learning,/URL.revokeObjectURL/);
 });
+
+test("Turbopack aliases Piper Node-only dependencies for browser builds only",()=>{
+ const config=read("next.config.ts");
+ assert.match(config,/turbopack:\s*\{/);
+ assert.match(config,/fs:\s*\{\s*browser:/);
+ assert.match(config,/path:\s*\{\s*browser:/);
+ assert.match(read("src/lib/empty-node-module.ts"),/export \{\}/);
+});
