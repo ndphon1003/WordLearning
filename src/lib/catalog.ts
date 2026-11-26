@@ -36,15 +36,14 @@ export async function saveWord(form:FormData,key?:string){
   if(old&&old.value.topicId!==topicId)throw new HttpError(400,"Không thể đổi chủ đề của từ ngữ.");
   const value:StoredWord={id:old?.value.id??randomUUID(),topicId,text:field(form,"text",1,60),description:field(form,"description",0,300),emoji:emoji(form),createdAt:old?.value.createdAt??stamp(),updatedAt:stamp(),imageId:old?.value.imageId,videoId:old?.value.videoId,audioId:old?.value.audioId};
   const [image,video,manualAudio]=await Promise.all([media(form,"image",!old),media(form,"video",!old),media(form,"audio")]);
-  const action=audioAction({previousText:old?.value.text,text:value.text,hasAudio:!!old?.value.audioId,uploaded:!!manualAudio,remove:form.get("removeAudio")==="true"||form.get("regenerateAudio")==="true"});
+  const action=audioAction({previousText:old?.value.text,text:value.text,hasAudio:!!old?.value.audioId,uploaded:!!manualAudio});
+  if(action==="required")throw new HttpError(400,"Hãy tải bản thu âm MP3/WAV cho từ ngữ này.");
   const audio=manualAudio;
   const created:string[]=[];const replaced:string[]=[];
   try{
     for(const [slot,file,prop] of [["image",image,"imageId"],["video",video,"videoId"],["audio",audio,"audioId"]] as const){
       if(file){if(value[prop])replaced.push(value[prop]!);value[prop]=await upload(value.id,slot,file,created);}
     }
-    // Remove a stale recording only after the updated record has been saved.
-    if(action==="drop"&&value.audioId){replaced.push(value.audioId);delete value.audioId;}
     if(old)await updateRecord(old.file,value);else await addRecord("word",value);
   }catch(e){await cleanup(created);throw e;}
   await cleanup(replaced);
