@@ -13,4 +13,4 @@ Bảo trì: bản ghi JSON được tạo riêng biệt, file thay thế cũ đ�
 
 ## Giọng đọc tự động
 
-Xem [hướng dẫn giọng đọc trình duyệt](text-to-speech-setup.md). Không cần Google Cloud Text-to-Speech, Billing, Google Cloud CLI hay thêm credentials. Nếu thiết bị không có giọng tiếng Việt, có thể tải MP3/WAV thủ công.
+Xem [hướng dẫn giọng đọc trình duyệt](text-to-speech-setup.md). Không cần Google Cloud Text-to-Speech, Billing, Google Cloud CLI hay thêm credentials. Piper chạy trên trình duyệt, không cần cài eSpeak NG trên máy chủ. Nếu thiết bị không có giọng tiếng Việt, có thể tải MP3/WAV thủ công.
