@@ -12,25 +12,22 @@ function Art({src,emoji,label,large=false}:{src?:string;emoji:string;label:strin
 }
 // Shared stop handler: only one pronunciation plays at a time.
 let activePronunciation:(()=>void)|undefined;
-function Listen({word,part}:{word:Word;part?:string}){
+function Listen({word}:{word:Word}){
  const [message,setMessage]=useState("");
  const [playing,setPlaying]=useState(false);
- const [ready,setReady]=useState(false);
  const ownStop=useRef<(()=>void)|undefined>(undefined);
  const availableVoice=useRef<SpeechSynthesisVoice|undefined>(undefined);
+ const preferServer=useRef(false);
  useEffect(()=>{
   if(!("speechSynthesis" in window))return;
   const engine=window.speechSynthesis;
-  const refresh=()=>{
-   availableVoice.current=selectVietnameseVoice(engine.getVoices());
-   setReady(!!availableVoice.current);
-  };
+  const refresh=()=>{availableVoice.current=selectVietnameseVoice(engine.getVoices());};
   refresh();
   engine.addEventListener("voiceschanged",refresh);
   const retry=window.setTimeout(refresh,1000);
   return ()=>{engine.removeEventListener("voiceschanged",refresh);window.clearTimeout(retry);};
  },[]);
- useEffect(()=>()=>{ownStop.current?.();},[word.id,word.audio,word.text,part]);
+ useEffect(()=>()=>{ownStop.current?.();},[word.id,word.audio,word.text]);
  function speak(){
   activePronunciation?.();
   setMessage("");
@@ -42,42 +39,53 @@ function Listen({word,part}:{word:Word;part?:string}){
    if(cancelled)return;
    cancelled=true;
    if(timer!==undefined)window.clearTimeout(timer);
-   if(audio){audio.onended=null;audio.onerror=null;audio.pause();}
-   if(utterance){utterance.onend=null;utterance.onerror=null;window.speechSynthesis.cancel();}
+   if(audio){audio.onended=null;audio.onerror=null;audio.pause();audio.removeAttribute("src");audio.load();}
+   if(utterance){utterance.onend=null;utterance.onerror=null;utterance.onstart=null;window.speechSynthesis.cancel();}
    if(activePronunciation===stop)activePronunciation=undefined;
    if(ownStop.current===stop)ownStop.current=undefined;
    setPlaying(false);
    if(error)setMessage(error);
   };
   const stop=()=>finish();
-  const register=()=>{ownStop.current=stop;activePronunciation=stop;setPlaying(true);timer=window.setTimeout(()=>finish("Giọng đọc chưa phản hồi. Bé thử lại nhé!"),30000);};
-  if(word.audio&&!part){
-   audio=new Audio(word.audio);
+  const register=()=>{ownStop.current=stop;activePronunciation=stop;setPlaying(true);timer=window.setTimeout(()=>finish("Giọng đọc chưa phản hồi. Bé thử lại nhé!"),15000);};
+  const playAudio=(url:string,missing:string)=>{
+   audio=new Audio(url);
    audio.onended=()=>finish();
-   audio.onerror=()=>finish("Không phát được bản thu. Bé nhờ người lớn kiểm tra nhé!");
-   register();
-   void audio.play().catch(()=>finish("Không phát được âm thanh. Bé thử lại nhé!"));
-   return;
-  }
-  if(!("speechSynthesis" in window)){setMessage("Thiết bị chưa hỗ trợ giọng đọc. Nhờ người lớn mở trình duyệt khác hoặc thêm bản thu nhé!");return;}
-  const engine=window.speechSynthesis;
-  const voices=engine.getVoices();
-  const voice=selectVietnameseVoice(voices)??availableVoice.current;
-  if(!voice){
-   setMessage(voices.length?"Chưa có giọng tiếng Việt. Nhờ người lớn bật giọng đọc tiếng Việt hoặc thêm bản thu MP3 nhé!":"Giọng đọc đang tải hoặc chưa được hỗ trợ. Bé thử lại sau vài giây nhé!");
-   return;
-  }
+   audio.onerror=()=>finish(missing);
+   void audio.play().catch(()=>finish(missing));
+  };
+  const serverSpeech=()=>{
+   if(cancelled)return;
+   preferServer.current=true;
+   if(utterance){
+    utterance.onend=null;utterance.onerror=null;utterance.onstart=null;
+    window.speechSynthesis.cancel();utterance=undefined;
+   }
+   playAudio("/api/speech/"+encodeURIComponent(word.id),"Chưa phát được tiếng Việt. Nhờ người lớn cài eSpeak NG theo hướng dẫn hoặc thêm bản thu nhé!");
+  };
+  register();
+  if(word.audio){playAudio(word.audio,"Không phát được bản thu. Nhờ người lớn kiểm tra nhé!");return;}
+  const engine="speechSynthesis" in window?window.speechSynthesis:undefined;
+  const voice=engine?selectVietnameseVoice(engine.getVoices())??availableVoice.current:undefined;
+  if(!engine||!voice||preferServer.current){serverSpeech();return;}
   try{
-   engine.cancel();
-   utterance=new SpeechSynthesisUtterance(part??word.text);
-   utterance.lang="vi-VN";utterance.voice=voice;utterance.rate=.8;
+   engine.cancel();engine.resume();
+   utterance=new SpeechSynthesisUtterance(word.text);
+   utterance.lang=voice.lang;utterance.voice=voice;utterance.rate=.8;
    utterance.onend=()=>finish();
-   utterance.onerror=()=>finish("Không đọc được tiếng Việt. Bé nhờ người lớn kiểm tra giọng đọc nhé!");
-   register();
+   utterance.onerror=()=>serverSpeech();
+   utterance.onstart=()=>{
+    if(timer!==undefined)window.clearTimeout(timer);
+    timer=window.setTimeout(()=>finish("Giọng đọc chưa phản hồi. Bé thử lại nhé!"),15000);
+   };
+   if(timer!==undefined)window.clearTimeout(timer);
+   timer=window.setTimeout(()=>{
+    if(!cancelled){timer=window.setTimeout(()=>finish("Giọng đọc chưa phản hồi. Bé thử lại nhé!"),15000);serverSpeech();}
+   },2500);
    engine.speak(utterance);
-  }catch{finish("Giọng đọc chưa sẵn sàng. Bé thử lại nhé!");}
+  }catch{serverSpeech();}
  }
- return <div className="listen"><button className={part?"pill":"button blue"} onClick={speak} disabled={playing} aria-label={part?"Nghe tiếng "+part:"Nghe phát âm"}>{part??(playing?"🔊 Đang đọc…":"🔊 Nghe phát âm")}</button>{message&&<p className="small" role="status">{message}</p>}{!part&&!word.audio&&!message&&!ready&&<p className="small">Giọng đọc tự động tùy thiết bị.</p>}</div>;
+ return <div className="listen"><button className="button blue" onClick={playing?()=>ownStop.current?.():speak} aria-label={playing?"Dừng phát âm":"Nghe phát âm"}>{playing?"⏹ Dừng":"🔊 Nghe phát âm"}</button>{message&&<p className="small" role="status">{message}</p>}</div>;
 }
 export default function LearningApp({view}:Props){
  const [data,setData]=useState<Catalog|null>(null),[error,setError]=useState("");
@@ -104,6 +112,6 @@ export default function LearningApp({view}:Props){
  view[0]==="topics"&&topic&&view.length===2?<><Link className="back" href="/">← Các chủ đề</Link><section className="topic-hero" style={{background:topic.color}}><span>{topic.emoji}</span><div><h1>{topic.name}</h1><p>{topic.description}</p></div></section><div className="section-title"><h2>Chọn từ bé muốn học</h2>{words.length>=3&&<button className="button orange" onClick={startQuiz}>⭐ Chơi ôn tập</button>}</div>
  {quiz&&<section className="quiz"><h2>Bé chọn hình đúng nhé!</h2><p className="quiz-word">{quiz.target.text}</p><Listen word={quiz.target}/><div className="cards quiz-cards">{quiz.options.map(w=><button key={w.id} className={"tile quiz-option "+(chosen===w.id?(w.id===quiz.target.id?"correct":"incorrect"):"")} onClick={()=>setChosen(w.id)} aria-label={w.text}><Art src={w.image} emoji={w.emoji} label={w.text}/></button>)}</div><p role="status">{chosen===quiz.target.id?"⭐ Bé giỏi quá!":chosen?"Bé thử lại nhé!":"Chạm vào một hình."}</p><button className="pill" onClick={startQuiz}>Câu khác</button> <button className="pill" onClick={()=>setQuiz(null)}>Đóng</button></section>}
  <div className="cards">{words.map(w=><Link className="tile word-tile" href={"/topics/"+topic.id+"/words/"+w.id} key={w.id}><Art src={w.image} emoji={w.emoji} label={w.text}/><h3>{w.text}</h3><span className="tile-detail">Học ngay →</span></Link>)}</div>{!words.length&&<div className="empty">Chủ đề này chưa có từ ngữ.</div>}</>:
- view[0]==="topics"&&view[2]==="words"&&view.length===4&&topic&&word?<><Link className="back" href={"/topics/"+topic.id}>← {topic.name}</Link><article className="word-detail"><div className="word-top"><span className="eyebrow">TỪ NGỮ CỦA BÉ</span><h1>{word.text}</h1><Listen key={word.id} word={word}/></div><Art src={word.image} emoji={word.emoji} label={word.text} large/>{word.description&&<p className="word-description">{word.description}</p>}{word.text.trim().split(/\s+/).length>1&&<section><h2>Đọc từng tiếng</h2><div className="syllables">{word.text.trim().split(/\s+/).map((part,i)=><Listen key={word.id+i} word={word} part={part}/>)}</div></section>}<section><h2>🎬 Cùng tìm hiểu</h2>{word.video?<video key={word.video+word.updatedAt} src={word.video} controls playsInline preload="metadata" aria-label={"Video giới thiệu "+word.text}/>:<p className="empty">Chưa có video minh họa.</p>}</section><div className="word-nav">{words.indexOf(word)>0?<Link className="button ghost" href={"/topics/"+topic.id+"/words/"+words[words.indexOf(word)-1].id}>← Từ trước</Link>:<span/>}{words.indexOf(word)<words.length-1?<Link className="button blue" href={"/topics/"+topic.id+"/words/"+words[words.indexOf(word)+1].id}>Từ tiếp theo →</Link>:<Link className="button blue" href={"/topics/"+topic.id}>Về chủ đề →</Link>}</div></article></>:<div className="empty">Không tìm thấy bài học. <Link href="/">Về trang chủ</Link></div>}</>}
+ view[0]==="topics"&&view[2]==="words"&&view.length===4&&topic&&word?<><Link className="back" href={"/topics/"+topic.id}>← {topic.name}</Link><article className="word-detail"><div className="word-top"><span className="eyebrow">TỪ NGỮ CỦA BÉ</span><h1>{word.text}</h1><Listen key={word.id} word={word}/></div><Art src={word.image} emoji={word.emoji} label={word.text} large/>{word.description&&<p className="word-description">{word.description}</p>}<section><h2>🎬 Cùng tìm hiểu</h2>{word.video?<video key={word.video+word.updatedAt} src={word.video} controls playsInline preload="metadata" aria-label={"Video giới thiệu "+word.text}/>:<p className="empty">Chưa có video minh họa.</p>}</section><div className="word-nav">{words.indexOf(word)>0?<Link className="button ghost" href={"/topics/"+topic.id+"/words/"+words[words.indexOf(word)-1].id}>← Từ trước</Link>:<span/>}{words.indexOf(word)<words.length-1?<Link className="button blue" href={"/topics/"+topic.id+"/words/"+words[words.indexOf(word)+1].id}>Từ tiếp theo →</Link>:<Link className="button blue" href={"/topics/"+topic.id}>Về chủ đề →</Link>}</div></article></>:<div className="empty">Không tìm thấy bài học. <Link href="/">Về trang chủ</Link></div>}</>}
  </main><footer>🌱 Học một chút mỗi ngày, lớn khôn từng ngày.</footer></div>;
 }
