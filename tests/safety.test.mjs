@@ -50,3 +50,14 @@ test("Turbopack aliases Piper Node-only dependencies for browser builds only",()
  assert.match(config,/path:\s*\{\s*browser:/);
  assert.match(read("src/lib/empty-node-module.ts"),/export \{\}/);
 });
+
+test("pronunciation is prewarmed, bounded in memory and played slowly",()=>{
+ const tts=read("src/lib/browser-tts.ts"),learning=read("src/components/LearningApp.tsx");
+ assert.match(tts,/MAX_CACHE_BYTES=4\*1024\*1024/);
+ assert.match(tts,/cache\.size>12/);
+ assert.match(learning,/SPEECH_RATE=0\.65/);
+ assert.match(learning,/AUDIO_RATE=0\.70/);
+ assert.match(learning,/element\.preservesPitch=true/);
+ assert.match(learning,/getCachedVietnamese\(word\.text\)/);
+ assert.match(learning,/predictVietnamese\(word\.text,\(\)=>\{\}\)/);
+});
