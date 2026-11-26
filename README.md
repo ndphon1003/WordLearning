@@ -17,17 +17,17 @@ Mở http://localhost:3000. Demo chỉ đọc, dùng emoji thay ảnh thật, kh
 
 ## Kết nối Drive thật
 
-Xem [hướng dẫn OAuth và triển khai](docs/google-drive-setup.md). Đặt DEMO_MODE=false, điền các biến Drive và mật khẩu trong .env.local hoặc môi trường hosting. Giọng đọc tự động không cần Google Cloud Billing, xem [hướng dẫn giọng đọc](docs/text-to-speech-setup.md). Mật khẩu ít nhất 12 ký tự ASCII, không dùng mật khẩu Google. Không commit secret hay gửi qua chat. Thư mục đích là WordLearning mà chủ dự án cung cấp.
+Xem [hướng dẫn OAuth và triển khai](docs/google-drive-setup.md). Đặt DEMO_MODE=false, điền các biến Drive và mật khẩu trong .env.local hoặc môi trường hosting. Giáo viên tải bản thu âm MP3/WAV, xem [hướng dẫn media](docs/text-to-speech-setup.md). Mật khẩu ít nhất 12 ký tự ASCII, không dùng mật khẩu Google. Không commit secret hay gửi qua chat. Thư mục đích là WordLearning mà chủ dự án cung cấp.
 
 Không cần khởi tạo database bằng tay: bản ghi và media được tạo tự động khi lưu nội dung đầu tiên. Nếu chưa có dữ liệu, trang chủ sẽ hiển thị trạng thái trống.
 
 ## Nghiệp vụ
 
 - Học sinh: xem chủ đề, từ, hình ảnh, phát âm, video, từ trước/sau, ôn tập chọn hình (từ 3 từ/chủ đề).
-- Người lớn: tạo/sửa/xóa chủ đề và từ. Chủ đề phải trống trước khi xóa. Tạo mới yêu cầu ảnh bìa / ảnh và video; file audio tùy chọn. Sửa không cần tải lại file.
+- Người lớn: tạo/sửa/xóa chủ đề và từ. Chủ đề phải trống trước khi xóa. Tạo chủ đề cần ảnh bìa; tạo từ cần ảnh, video và bản thu âm MP3/WAV. Khi sửa, giữ media cũ nếu không đổi từ ngữ; từ chưa có audio hoặc đổi chữ cần tải bản thu.
 - Chỉ dùng mật khẩu cho mỗi thao tác ghi. Không có account học sinh, cookie đăng nhập hay lưu mật khẩu phía client.
-- Phát âm: một nút đọc cả từ, ưu tiên bản thu MP3/WAV nếu có, sau đó Web Speech API tiếng Việt. Nếu thiết bị không có giọng phù hợp hoặc đọc lỗi, dùng model Piper tiếng Việt chạy trực tiếp trên trình duyệt. Model được tải khi cần, âm thanh tạo trong bộ nhớ và không lưu Drive. Không cần Cloud TTS, Billing hoặc cài eSpeak trên máy chủ. Khi đổi chữ, bỏ bản thu cũ nếu không có bản thu mới. Xem [hướng dẫn giọng đọc](docs/text-to-speech-setup.md).
-- Hình ảnh và video do quản trị viên cung cấp; không tự tạo media AI. Giao diện nổi CSS, emoji dự phòng.
+- Phát âm: chỉ phát bản thu do người lớn tải lên Drive, tốc độ nguyên bản. Không dùng Web Speech API, Piper hay dịch vụ TTS.
+- Danh sách từ chỉ hiển thị chữ. Trang bài học có ba nút Âm thanh, Hình ảnh, Video; ảnh/video chỉ được tải và hiển thị sau khi chọn nút. Chuyển giữa các media dừng âm thanh/video trước đó. Trò chơi ôn tập vẫn hiển thị các hình lựa chọn.
 
 ## Kiến trúc
 
