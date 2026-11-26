@@ -26,7 +26,7 @@ Không cần khởi tạo database bằng tay: bản ghi và media được tạ
 - Học sinh: xem chủ đề, từ, hình ảnh, phát âm, video, từ trước/sau, ôn tập chọn hình (từ 3 từ/chủ đề).
 - Người lớn: tạo/sửa/xóa chủ đề và từ. Chủ đề phải trống trước khi xóa. Tạo mới yêu cầu ảnh bìa / ảnh và video; file audio tùy chọn. Sửa không cần tải lại file.
 - Chỉ dùng mật khẩu cho mỗi thao tác ghi. Không có account học sinh, cookie đăng nhập hay lưu mật khẩu phía client.
-- Phát âm: ưu tiên bản thu MP3/WAV nếu có; nếu không có, đọc trực tiếp bằng Web Speech API với giọng tiếng Việt của trình duyệt. Nếu không có giọng tiếng Việt hoặc trình duyệt lỗi, thử eSpeak NG trên server (cài miễn phí một lần, xem hướng dẫn). Chỉ trả audio WAV trong bộ nhớ khi nhấn nghe, không ghi Drive hay gọi Cloud TTS. Khi đổi chữ, bỏ bản thu cũ nếu không có bản thu mới. Có thể bỏ bản thu bằng checkbox trong form sửa. Kiểm tra giọng đọc tiếng Việt trên thiết bị dự thi.
+- Phát âm: một nút đọc cả từ, ưu tiên bản thu MP3/WAV nếu có, sau đó Web Speech API tiếng Việt. Nếu thiết bị không có giọng phù hợp hoặc đọc lỗi, dùng model Piper tiếng Việt chạy trực tiếp trên trình duyệt. Model được tải khi cần, âm thanh tạo trong bộ nhớ và không lưu Drive. Không cần Cloud TTS, Billing hoặc cài eSpeak trên máy chủ. Khi đổi chữ, bỏ bản thu cũ nếu không có bản thu mới. Xem [hướng dẫn giọng đọc](docs/text-to-speech-setup.md).
 - Hình ảnh và video do quản trị viên cung cấp; không tự tạo media AI. Giao diện nổi CSS, emoji dự phòng.
 
 ## Kiến trúc
