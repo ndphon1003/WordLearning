@@ -13,4 +13,4 @@ Bảo trì: bản ghi JSON được tạo riêng biệt, file thay thế cũ đ�
 
 ## Giọng đọc tự động
 
-Xem [Cấu hình Google Cloud Text-to-Speech](text-to-speech-setup.md). Không cần đổi OAuth Drive hiện tại. Nếu chưa cấu hình TTS, có thể tải MP3/WAV thủ công.
+Xem [hướng dẫn giọng đọc trình duyệt](text-to-speech-setup.md). Không cần Google Cloud Text-to-Speech, Billing, Google Cloud CLI hay thêm credentials. Nếu thiết bị không có giọng tiếng Việt, có thể tải MP3/WAV thủ công.
