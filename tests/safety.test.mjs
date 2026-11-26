@@ -27,13 +27,18 @@ test("browser speech does not require cloud TTS",()=>{
  assert.match(learning,/voiceschanged/);
  assert.match(learning,/selectVietnameseVoice/);
 });
-test("whole-word live speech does not store generated audio",()=>{
- const api=read("src/app/api/[...path]/route.ts"),live=read("src/lib/live-speech.ts"),learning=read("src/components/LearningApp.tsx");
- assert.match(api,/p\[0\]==="speech"/);
- assert.match(api,/entry<StoredWord>\("word",key\)/);
- assert.match(live,/shell:false/);
- assert.match(live,/--stdout/);
- assert.doesNotMatch(live,/writeFile|addMedia|texttospeech.googleapis/);
- assert.doesNotMatch(learning,/Đọc từng tiếng|part=\{part\}/);
+test("whole-word Piper fallback runs in browser only",()=>{
+ const api=read("src/app/api/[...path]/route.ts"),tts=read("src/lib/browser-tts.ts"),learning=read("src/components/LearningApp.tsx");
+ const env=read(".env.example"),pkg=JSON.parse(read("package.json"));
+ assert.equal(pkg.dependencies["@diffusionstudio/vits-web"],"1.0.3");
+ assert.match(tts,/import\("@diffusionstudio\/vits-web"\)/);
+ assert.match(tts,/vi_VN-vais1000-medium/);
+ assert.match(tts,/tts\.predict/);
+ assert.doesNotMatch(tts,/writeFile|addMedia|texttospeech.googleapis/);
+ assert.doesNotMatch(api,/liveSpeech|p\[0\]==="speech"/);
+ assert.doesNotMatch(env,/ESPEAK_NG_PATH/);
+ assert.doesNotMatch(learning,/Đọc từng tiếng|part=\{part\}|\/api\/speech\//);
  assert.match(learning,/SpeechSynthesisUtterance\(word.text\)/);
+ assert.match(learning,/predictVietnamese\(word.text/);
+ assert.match(learning,/URL.revokeObjectURL/);
 });
