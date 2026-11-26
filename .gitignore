@@ -10,3 +10,5 @@ client_secret*.json
 service-account*.json
 *.pem
 *.key
+*service-account*.json
+*credentials*.json
