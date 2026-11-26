@@ -1,5 +1,6 @@
 "use client";
-import {useEffect,useState,useCallback} from "react";
+import {useEffect,useState,useCallback,useRef} from "react";
+import {selectVietnameseVoice} from "../lib/audio-policy.mjs";
 import Link from "next/link";
 import {colors,emojis,type Catalog,type Topic,type Word} from "../lib/model";
 import Admin from "./Admin";
@@ -9,25 +10,74 @@ function Art({src,emoji,label,large=false}:{src?:string;emoji:string;label:strin
  useEffect(()=>setFailed(false),[src]);
  return <div className={"art"+(large?" art-large":"")}>{src&&!failed?<img src={src} alt={label} onError={()=>setFailed(true)}/>:<span role="img" aria-label={label}>{emoji}</span>}</div>;
 }
+// Shared stop handler: only one pronunciation plays at a time.
+let activePronunciation:(()=>void)|undefined;
 function Listen({word,part}:{word:Word;part?:string}){
  const [message,setMessage]=useState("");
  const [playing,setPlaying]=useState(false);
- useEffect(()=>()=>{if("speechSynthesis" in window)window.speechSynthesis.cancel();},[]);
- async function speak(){
+ const [ready,setReady]=useState(false);
+ const ownStop=useRef<(()=>void)|undefined>(undefined);
+ const availableVoice=useRef<SpeechSynthesisVoice|undefined>(undefined);
+ useEffect(()=>{
+  if(!("speechSynthesis" in window))return;
+  const engine=window.speechSynthesis;
+  const refresh=()=>{
+   availableVoice.current=selectVietnameseVoice(engine.getVoices());
+   setReady(!!availableVoice.current);
+  };
+  refresh();
+  engine.addEventListener("voiceschanged",refresh);
+  const retry=window.setTimeout(refresh,1000);
+  return ()=>{engine.removeEventListener("voiceschanged",refresh);window.clearTimeout(retry);};
+ },[]);
+ useEffect(()=>()=>{ownStop.current?.();},[word.id,word.audio,word.text,part]);
+ function speak(){
+  activePronunciation?.();
   setMessage("");
+  let cancelled=false;
+  let audio:HTMLAudioElement|undefined;
+  let utterance:SpeechSynthesisUtterance|undefined;
+  let timer:number|undefined;
+  const finish=(error?:string)=>{
+   if(cancelled)return;
+   cancelled=true;
+   if(timer!==undefined)window.clearTimeout(timer);
+   if(audio){audio.onended=null;audio.onerror=null;audio.pause();}
+   if(utterance){utterance.onend=null;utterance.onerror=null;window.speechSynthesis.cancel();}
+   if(activePronunciation===stop)activePronunciation=undefined;
+   if(ownStop.current===stop)ownStop.current=undefined;
+   setPlaying(false);
+   if(error)setMessage(error);
+  };
+  const stop=()=>finish();
+  const register=()=>{ownStop.current=stop;activePronunciation=stop;setPlaying(true);timer=window.setTimeout(()=>finish("Giọng đọc chưa phản hồi. Bé thử lại nhé!"),30000);};
   if(word.audio&&!part){
-   try{setPlaying(true);const a=new Audio(word.audio);a.onended=()=>setPlaying(false);a.onerror=()=>{setPlaying(false);setMessage("Không phát được âm thanh.");};await a.play();}catch{setPlaying(false);setMessage("Không phát được âm thanh.");}return;
+   audio=new Audio(word.audio);
+   audio.onended=()=>finish();
+   audio.onerror=()=>finish("Không phát được bản thu. Bé nhờ người lớn kiểm tra nhé!");
+   register();
+   void audio.play().catch(()=>finish("Không phát được âm thanh. Bé thử lại nhé!"));
+   return;
   }
-  if(!("speechSynthesis" in window)){setMessage("Thiết bị chưa hỗ trợ giọng đọc. Nhờ người lớn giúp bé nhé!");return;}
-  const voice=window.speechSynthesis.getVoices().find(v=>v.lang.toLowerCase().startsWith("vi"));
-  if(!voice){setMessage("Thiết bị chưa có giọng tiếng Việt. Nhờ người lớn cài giọng đọc nhé!");return;}
-  window.speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(part??word.text);u.lang="vi-VN";u.voice=voice;u.rate=.8;
-  u.onstart=()=>setPlaying(true);u.onend=()=>setPlaying(false);u.onerror=()=>{setPlaying(false);setMessage("Giọng đọc chưa sẵn sàng.");};
-  window.speechSynthesis.speak(u);
+  if(!("speechSynthesis" in window)){setMessage("Thiết bị chưa hỗ trợ giọng đọc. Nhờ người lớn mở trình duyệt khác hoặc thêm bản thu nhé!");return;}
+  const engine=window.speechSynthesis;
+  const voices=engine.getVoices();
+  const voice=selectVietnameseVoice(voices)??availableVoice.current;
+  if(!voice){
+   setMessage(voices.length?"Chưa có giọng tiếng Việt. Nhờ người lớn bật giọng đọc tiếng Việt hoặc thêm bản thu MP3 nhé!":"Giọng đọc đang tải hoặc chưa được hỗ trợ. Bé thử lại sau vài giây nhé!");
+   return;
+  }
+  try{
+   engine.cancel();
+   utterance=new SpeechSynthesisUtterance(part??word.text);
+   utterance.lang="vi-VN";utterance.voice=voice;utterance.rate=.8;
+   utterance.onend=()=>finish();
+   utterance.onerror=()=>finish("Không đọc được tiếng Việt. Bé nhờ người lớn kiểm tra giọng đọc nhé!");
+   register();
+   engine.speak(utterance);
+  }catch{finish("Giọng đọc chưa sẵn sàng. Bé thử lại nhé!");}
  }
- useEffect(()=>{if("speechSynthesis" in window){window.speechSynthesis.getVoices();}},[]);
- return <div className="listen"><button className={part?"pill":"button blue"} onClick={speak} disabled={playing}>{part??(playing?"🔊 Đang đọc…":"🔊 Nghe phát âm")}</button>{message&&<p className="small" role="status">{message}</p>}</div>;
+ return <div className="listen"><button className={part?"pill":"button blue"} onClick={speak} disabled={playing} aria-label={part?"Nghe tiếng "+part:"Nghe phát âm"}>{part??(playing?"🔊 Đang đọc…":"🔊 Nghe phát âm")}</button>{message&&<p className="small" role="status">{message}</p>}{!part&&!word.audio&&!message&&!ready&&<p className="small">Giọng đọc tự động tùy thiết bị.</p>}</div>;
 }
 export default function LearningApp({view}:Props){
  const [data,setData]=useState<Catalog|null>(null),[error,setError]=useState("");
