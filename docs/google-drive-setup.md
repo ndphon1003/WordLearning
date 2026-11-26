@@ -10,3 +10,7 @@
 Không dùng service account cho My Drive thường (không có quota sở hữu file mới); OAuth user refresh token được sử dụng cho ứng dụng này. Đừng cấp quyền truy cập Drive rộng cho tài khoản chứa dữ liệu nhạy cảm. Không ghi log request headers hoặc multipart. Sau deploy, kiểm tra phát âm trên máy thực tế; nếu giọng không hỗ trợ hoặc không chuẩn, tải bản thu của giáo viên.
 
 Bảo trì: bản ghi JSON được tạo riêng biệt, file thay thế cũ được đưa vào Trash sau khi bản ghi mới lưu thành công. Khi upload thất bại, ứng dụng thử đưa media mới vào Trash. Không xóa file bằng tay trừ khi đã đối chiếu JSON và appProperties; sao lưu thư mục trước khi bảo trì.
+
+## Giọng đọc tự động
+
+Xem [Cấu hình Google Cloud Text-to-Speech](text-to-speech-setup.md). Không cần đổi OAuth Drive hiện tại. Nếu chưa cấu hình TTS, có thể tải MP3/WAV thủ công.
