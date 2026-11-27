@@ -5,13 +5,19 @@ import {color,emoji,field,id,media} from "./security";
 import {mediaUrl,type Catalog,type Topic,type Word} from "./model";
 import {demo} from "./demo";
 import {audioAction} from "./audio-policy.mjs";
-export function publicTopic(t:StoredTopic):Topic{const {coverId,...v}=t;return {...v,...(coverId?{cover:mediaUrl("topic",v.id,"cover")}:{})};}
-export function publicWord(w:StoredWord):Word{const {imageId,videoId,audioId,...v}=w;return {...v,...(imageId?{image:mediaUrl("word",v.id,"image")} : {}),...(videoId?{video:mediaUrl("word",v.id,"video")} : {}),...(audioId?{audio:mediaUrl("word",v.id,"audio")+"?v="+encodeURIComponent(v.updatedAt)} : {})};}
+import {createReadCache} from "./read-cache.mjs";
+const catalogCache=createReadCache({ttlMs:60000,maxEntries:1});
+export function clearCatalogCache(){catalogCache.clear();}
+const versionedUrl=(kind:"topic"|"word",id:string,slot:string,version:string)=>mediaUrl(kind,id,slot)+"?v="+encodeURIComponent(version);
+export function publicTopic(t:StoredTopic):Topic{const {coverId,...v}=t;return {...v,...(coverId?{cover:versionedUrl("topic",v.id,"cover",v.updatedAt)}:{})};}
+export function publicWord(w:StoredWord):Word{const {imageId,videoId,audioId,...v}=w;return {...v,...(imageId?{image:versionedUrl("word",v.id,"image",v.updatedAt)} : {}),...(videoId?{video:versionedUrl("word",v.id,"video",v.updatedAt)} : {}),...(audioId?{audio:versionedUrl("word",v.id,"audio",v.updatedAt)} : {})};}
 export async function catalog():Promise<Catalog>{
   if(process.env.DEMO_MODE==="true")return demo;
-  const [topics,words]=await Promise.all([entries<StoredTopic>("topic"),entries<StoredWord>("word")]);
-  const ids=new Set(topics.map(t=>t.value.id));
-  return {topics:topics.map(t=>publicTopic(t.value)),words:words.filter(w=>ids.has(w.value.topicId)).map(w=>publicWord(w.value)),demo:false};
+  return catalogCache.get(process.env.GOOGLE_DRIVE_FOLDER_ID??"",async()=>{
+    const [topics,words]=await Promise.all([entries<StoredTopic>("topic"),entries<StoredWord>("word")]);
+    const ids=new Set(topics.map(t=>t.value.id));
+    return {topics:topics.map(t=>publicTopic(t.value)),words:words.filter(w=>ids.has(w.value.topicId)).map(w=>publicWord(w.value)),demo:false};
+  });
 }
 const stamp=()=>new Date().toISOString();
 async function upload(owner:string,slot:string,file:File|undefined,created:string[]){
