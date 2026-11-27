@@ -56,3 +56,17 @@ test("child-facing layout keeps one word heading, three media actions and progre
  assert.match(css,/prefers-reduced-motion:reduce/);
  assert.match(css,/:focus-visible/);
 });
+
+test("media optimization preserves access checks and streaming",()=>{
+ const drive=read("src/lib/drive.ts"),api=read("src/app/api/[...path]/route.ts"),catalog=read("src/lib/catalog.ts"),ui=read("src/components/LearningApp.tsx");
+ assert.match(api,/await cachedEntry<StoredTopic>\("topic",w.topicId\)/);
+ assert.match(drive,/f\.parents\?\.includes\(root\(\)\)/);
+ assert.match(drive,/new Response\(r.body/);
+ assert.match(drive,/private, max-age=300/);
+ assert.match(api,/finally\{clearCatalogCache\(\);clearDriveReadCache\(\);\}/);
+ assert.match(catalog,/versionedUrl\("word",v.id,"image",v.updatedAt\)/);
+ assert.match(catalog,/versionedUrl\("word",v.id,"video",v.updatedAt\)/);
+ assert.match(ui,/const image=new Image\(\);image.src=word.image/);
+ assert.match(ui,/audioRef.current\?\?new Audio\(word.audio\)/);
+ assert.match(ui,/panel==="video"&&<section/);
+});
