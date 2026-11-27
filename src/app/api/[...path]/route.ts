@@ -1,5 +1,5 @@
-import {catalog,deleteRecord,saveTopic,saveWord} from "../../../lib/catalog";
-import {entry,HttpError,streamMedia,type StoredTopic,type StoredWord} from "../../../lib/drive";
+import {catalog,clearCatalogCache,deleteRecord,saveTopic,saveWord} from "../../../lib/catalog";
+import {cachedEntry,clearDriveReadCache,HttpError,streamMedia,type StoredTopic,type StoredWord} from "../../../lib/drive";
 import {form,guard,id,serial} from "../../../lib/security";
 export const runtime="nodejs";
 export const dynamic="force-dynamic";
@@ -11,15 +11,17 @@ export async function GET(req:Request,ctx:Context){
     const p=(await ctx.params).path;
     if(p[0]==="media"&&p.length===4){
       if(process.env.DEMO_MODE==="true")throw new HttpError(404,"Demo không có tệp media.");
-      const key=id(p[2]);const slot=p[3];let file:string|undefined;
-      if(p[1]==="topic"&&slot==="cover"){file=(await entry<StoredTopic>("topic",key)).value.coverId;}
+      const key=id(p[2]);const slot=p[3];let file:string|undefined;let version:string|undefined;
+      if(p[1]==="topic"&&slot==="cover"){const t=(await cachedEntry<StoredTopic>("topic",key)).value;file=t.coverId;version=t.updatedAt;}
       else if(p[1]==="word"&&["image","video","audio"].includes(slot)){
-        const w=(await entry<StoredWord>("word",key)).value;
-        await entry<StoredTopic>("topic",w.topicId);
+        const w=(await cachedEntry<StoredWord>("word",key)).value;
+        await cachedEntry<StoredTopic>("topic",w.topicId);version=w.updatedAt;
         file=slot==="image"?w.imageId:slot==="video"?w.videoId:w.audioId;
       }
       if(!file)throw new HttpError(404,"Không tìm thấy media.");
-      return await streamMedia(file,key,slot,req.headers.get("range"));
+      const requestedVersion=new URL(req.url).searchParams.get("v");
+      if(requestedVersion&&requestedVersion!==version)throw new HttpError(404,"Phiên bản media đã thay đổi. Hãy mở lại bài học.");
+      return await streamMedia(file,key,slot,req.headers.get("range"),!!requestedVersion);
     }
     if(p.length===1&&p[0]==="catalog")return json(await catalog());
     if(!["topics","words"].includes(p[0]))throw new HttpError(404,"Không tìm thấy.");
@@ -31,17 +33,23 @@ export async function GET(req:Request,ctx:Context){
     throw new HttpError(404,"Không tìm thấy.");
   }catch(e){return failure(e);}
 }
+async function write<T>(action:()=>Promise<T>):Promise<T>{
+  return serial(async()=>{
+    clearCatalogCache();clearDriveReadCache();
+    try{return await action();}finally{clearCatalogCache();clearDriveReadCache();}
+  });
+}
 async function mutate(req:Request,ctx:Context){
   try{
     const p=(await ctx.params).path;
     if(p[0]!=="admin"||!["topics","words"].includes(p[1]))throw new HttpError(404,"Không tìm thấy.");
     guard(req);
     const kind=p[1]==="topics"?"topic":"word";
-    if(req.method==="DELETE"&&p.length===3){await serial(()=>deleteRecord(kind,id(p[2])));return json({ok:true});}
+    if(req.method==="DELETE"&&p.length===3){await write(()=>deleteRecord(kind,id(p[2])));return json({ok:true});}
     if((req.method==="POST"&&p.length===2)||(req.method==="PATCH"&&p.length===3)){
       const key=p.length===3?id(p[2]):undefined;
       const data=await form(req);
-      const value=await serial(()=>kind==="topic"?saveTopic(data,key):saveWord(data,key));
+      const value=await write(()=>kind==="topic"?saveTopic(data,key):saveWord(data,key));
       return json(value,req.method==="POST"?201:200);
     }
     throw new HttpError(405,"Thao tác không hợp lệ.");
