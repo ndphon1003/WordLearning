@@ -11,42 +11,63 @@ function Art({src,emoji,label,large=false}:{src?:string;emoji:string;label:strin
 }
 // Only one recording plays at a time; changing lessons stops it.
 let activePronunciation:(()=>void)|undefined;
-function Listen({word,onSelect,label="Âm thanh"}:{word:Word;onSelect?:()=>void;label?:string}){
+function Listen({word,onSelect,label="Âm thanh",preload=false}:{word:Word;onSelect?:()=>void;label?:string;preload?:boolean}){
  const [message,setMessage]=useState("");
  const [playing,setPlaying]=useState(false);
+ const [buffering,setBuffering]=useState(false);
  const ownStop=useRef<(()=>void)|undefined>(undefined);
- useEffect(()=>{setMessage("");return ()=>ownStop.current?.();},[word.id,word.audio]);
+ const audioRef=useRef<HTMLAudioElement|undefined>(undefined);
+ useEffect(()=>{
+  setMessage("");
+  // Prepare only the open lesson's short recording; never autoplay.
+  if(preload&&word.audio){
+   const audio=new Audio(word.audio);audio.preload="auto";audioRef.current=audio;
+  }
+  return ()=>{
+   ownStop.current?.();
+   const audio=audioRef.current;
+   if(audio){audio.pause();audio.removeAttribute("src");audio.load();audioRef.current=undefined;}
+  };
+ },[word.id,word.audio,preload]);
  function play(){
   if(ownStop.current){ownStop.current();return;}
   activePronunciation?.();onSelect?.();setMessage("");
   if(!word.audio){setMessage("Từ này chưa có bản thu âm. Nhờ người lớn bổ sung nhé!");return;}
-  const audio=new Audio(word.audio);
+  const audio=audioRef.current??new Audio(word.audio);audioRef.current=audio;
   let stopped=false;
   const finish=(error?:string)=>{
    if(stopped)return;stopped=true;
-   audio.onended=null;audio.onerror=null;audio.pause();audio.removeAttribute("src");audio.load();
+   audio.onended=null;audio.onerror=null;audio.onplaying=null;audio.onwaiting=null;audio.pause();
+   try{audio.currentTime=0;}catch{/* Media may not have loaded yet. */}
    if(activePronunciation===stop)activePronunciation=undefined;
    if(ownStop.current===stop)ownStop.current=undefined;
-   setPlaying(false);setMessage(error??"");
+   setPlaying(false);setBuffering(false);setMessage(error??"");
+   if(error){audio.removeAttribute("src");audio.load();audioRef.current=undefined;}
   };
   const stop=()=>finish();
-  ownStop.current=stop;activePronunciation=stop;setPlaying(true);
+  ownStop.current=stop;activePronunciation=stop;setPlaying(true);setBuffering(audio.readyState<3);
+  audio.onplaying=()=>setBuffering(false);audio.onwaiting=()=>setBuffering(true);
   audio.playbackRate=1; // Preserve the teacher's recorded pronunciation.
   audio.onended=()=>finish();
   audio.onerror=()=>finish("Không phát được âm thanh. Bé thử lại nhé!");
   void audio.play().catch(()=>finish("Không phát được âm thanh. Bé thử lại nhé!"));
  }
- return <div className="listen"><button type="button" className="button blue" onClick={play} aria-label={playing?"Dừng âm thanh":label} aria-pressed={playing}><span className="action-icon" aria-hidden="true">{playing?"⏹":"🔊"}</span><span>{playing?"Dừng":label}</span></button>{message&&<p className="small" role="status">{message}</p>}</div>;
+ return <div className="listen"><button type="button" className="button blue" onClick={play} aria-label={playing?"Dừng âm thanh":label} aria-pressed={playing}><span className="action-icon" aria-hidden="true">{playing?"⏹":"🔊"}</span><span>{buffering?"Đang tải…":playing?"Dừng":label}</span></button>{message&&<p className="small" role="status">{message}</p>}</div>;
 }
 function WordMedia({word}:{word:Word}){
  const [panel,setPanel]=useState<"image"|"video"|null>(null);
+ // Warm the browser image cache without rendering the image.
+ useEffect(()=>{
+  if(!word.image)return;
+  const image=new Image();image.src=word.image;
+ },[word.image]);
  function toggle(next:"image"|"video"){
   activePronunciation?.();
   setPanel(current=>current===next?null:next);
  }
  return <div className="word-media">
   <div className="media-actions" role="group" aria-label="Khám phá từ ngữ">
-   <Listen word={word} onSelect={()=>setPanel(null)}/>
+   <Listen word={word} preload onSelect={()=>setPanel(null)}/>
    <button type="button" className="button image-button" aria-expanded={panel==="image"} aria-controls="word-media-panel" onClick={()=>toggle("image")}><span className="action-icon" aria-hidden="true">🖼️</span><span>Hình ảnh</span></button>
    <button type="button" className="button video-button" aria-expanded={panel==="video"} aria-controls="word-media-panel" onClick={()=>toggle("video")}><span className="action-icon" aria-hidden="true">🎬</span><span>Video</span></button>
   </div>
