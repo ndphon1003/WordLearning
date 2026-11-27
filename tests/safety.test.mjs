@@ -44,3 +44,15 @@ test("lesson media starts hidden, opens only on user selection and resets per wo
  const list=ui.slice(ui.indexOf('<div className="cards">{words.map'),ui.indexOf('view[0]==="topics"&&view[2]==="words"'));
  assert.doesNotMatch(list,/<Art|<video/);
 });
+
+test("child-facing layout keeps one word heading, three media actions and progress",()=>{
+ const ui=read("src/components/LearningApp.tsx"),css=read("src/app/globals.css");
+ assert.match(ui,/<h1>\{word.text\}<\/h1>/);
+ assert.doesNotMatch(ui,/className="word-description"/);
+ assert.match(ui,/className="lesson-progress"/);
+ assert.match(ui,/<progress value=\{words.indexOf\(word\)\+1\}/);
+ assert.match(ui,/aria-label="Khám phá từ ngữ"/);
+ assert.match(css,/\.media-actions\s*\{[^}]*repeat\(3,minmax\(0,1fr\)\)/);
+ assert.match(css,/prefers-reduced-motion:reduce/);
+ assert.match(css,/:focus-visible/);
+});
