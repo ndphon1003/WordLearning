@@ -4,7 +4,13 @@ import {readFileSync} from "node:fs";
 const read=p=>readFileSync(new URL("../"+p,import.meta.url),"utf8");
 test("credentials template contains placeholders only",()=>{
  const env=read(".env.example");
- for(const line of env.split("\n").filter(x=>/^GOOGLE_|^ADMIN_PASSWORD=/.test(x)))assert.ok(line.endsWith("="));
+ const lines=env.split(/\r?\n/);
+ for(const key of ["GOOGLE_DRIVE_FOLDER_ID","GOOGLE_CLIENT_ID","GOOGLE_CLIENT_SECRET","GOOGLE_REFRESH_TOKEN","ADMIN_PASSWORD"]){
+  const matches=lines.filter(line=>line.startsWith(key+"="));
+  assert.ok(matches.length===1,key+" must appear exactly once");
+  assert.ok(matches[0]===key+"=",key+" must be empty in .env.example");
+ }
+ for(const line of lines.filter(x=>/^GOOGLE_|^ADMIN_PASSWORD=/.test(x)))assert.ok(line.endsWith("="),"Credential placeholder must be empty");
  assert.match(read(".gitignore"),/\.env\*/);
 });
 test("server boundaries and password check precede body parsing",()=>{
