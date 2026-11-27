@@ -27,7 +27,8 @@ Không cần khởi tạo database bằng tay: bản ghi và media được tạ
 - Người lớn: tạo/sửa/xóa chủ đề và từ. Chủ đề phải trống trước khi xóa. Tạo chủ đề cần ảnh bìa; tạo từ cần ảnh, video và bản thu âm MP3/WAV. Khi sửa, giữ media cũ nếu không đổi từ ngữ; từ chưa có audio hoặc đổi chữ cần tải bản thu.
 - Chỉ dùng mật khẩu cho mỗi thao tác ghi. Không có account học sinh, cookie đăng nhập hay lưu mật khẩu phía client.
 - Phát âm: chỉ phát bản thu do người lớn tải lên Drive, tốc độ nguyên bản. Không dùng Web Speech API, Piper hay dịch vụ TTS.
-- Danh sách từ chỉ hiển thị chữ. Trang bài học có ba nút Âm thanh, Hình ảnh, Video; ảnh/video chỉ được tải và hiển thị sau khi chọn nút. Chuyển giữa các media dừng âm thanh/video trước đó. Trò chơi ôn tập vẫn hiển thị các hình lựa chọn.
+- Danh sách từ chỉ hiển thị chữ. Trang bài học có tiêu đề từ duy nhất, tiến độ và ba nút Âm thanh, Hình ảnh, Video; ảnh/video chỉ được tải và hiển thị sau khi chọn nút. Chuyển giữa các media dừng âm thanh/video trước đó. Trò chơi ôn tập vẫn hiển thị các hình lựa chọn.
+- Giao diện thống nhất bảng màu pastel, nút chạm lớn, chữ tiếng Việt dễ đọc, bố cục responsive, focus bàn phím và hỗ trợ giảm chuyển động. Không tải font hoặc hình trang trí từ bên ngoài.
 
 ## Kiến trúc
 
