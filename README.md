@@ -40,4 +40,8 @@ API: GET /api/catalog, /api/topics, /api/topics/:id, /api/topics/:id/words, /api
 
 Giới hạn: 5 MiB mỗi ảnh/audio, 30 MiB MP4, 42 MiB tổng request. Kiểm tra định dạng và magic bytes, không phải công cụ quét mã độc. Chỉ tải nội dung tin cậy. Lỗi upload được dọn best-effort; có thể còn file mồ côi nếu Drive lỗi hoặc request bị ngắt. Drive không phải database giao dịch; dùng một tiến trình Node, không dùng nhiều replica ghi đồng thời. Rate limit mật khẩu trong bộ nhớ (8 lần sai/phút toàn tiến trình), nên dùng thêm rate limit ở proxy khi public. Demo không ghi Drive.
 
+## Hiệu năng
+
+Cache RAM có giới hạn trong tiến trình Next.js: catalog, bản ghi và metadata Drive 60 giây, tối đa 1.024 mục mỗi cache metadata/bản ghi; các GET trùng đang chạy dùng chung promise. Catalog làm nóng cache bản ghi. Thêm/sửa/xóa qua admin xóa cache trước và sau thao tác. Không cache file lớn trên server. Ảnh/audio bài hiện tại được tải trước nhưng không hiện hoặc phát tự động; video chỉ tải khi mở nút, hỗ trợ Range. Media URL có phiên bản updatedAt và cache riêng trên trình duyệt tối đa 5 phút (URL cũ không phiên bản: 60 giây). Thay đổi qua Drive bên ngoài app có thể trễ đến khi cache hết hạn; media đã tải có thể còn trong cache trình duyệt. Không dùng Redis/CDN/DB mới. Lần tải đầu vẫn phụ thuộc mạng và kích thước file.
+
 CI chạy typecheck, kiểm tra tĩnh bảo mật và build; chưa thay thế kiểm thử thực tế với OAuth và media.
