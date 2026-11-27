@@ -2,6 +2,7 @@ import "server-only";
 import {OAuth2Client} from "google-auth-library";
 import {randomUUID} from "node:crypto";
 import type {Topic,Word} from "./model";
+import {createReadCache} from "./read-cache.mjs";
 
 export class HttpError extends Error { constructor(public status:number,message:string){super(message);} }
 export type Kind="topic"|"word";
@@ -15,6 +16,12 @@ const fields="id,name,mimeType,parents,appProperties";
 const base="https://www.googleapis.com/drive/v3/";
 const uploadBase="https://www.googleapis.com/upload/drive/v3/";
 let client:OAuth2Client|undefined;
+// Cache only validated records and metadata, not large file bodies.
+const recordCache=createReadCache({ttlMs:60000,maxEntries:1024});
+const metadataCache=createReadCache({ttlMs:60000,maxEntries:1024});
+let readGeneration=0;
+export function clearDriveReadCache(){readGeneration++;recordCache.clear();metadataCache.clear();}
+const recordKey=(kind:Kind,id:string)=>root()+":"+kind+":"+id;
 function root(){
   const id=process.env.GOOGLE_DRIVE_FOLDER_ID;
   if(!id||!/^[A-Za-z0-9_-]+$/.test(id)) throw new HttpError(503,"Chưa cấu hình thư mục Google Drive.");
@@ -67,15 +74,26 @@ async function read<T extends Stored>(file:DriveFile):Promise<Entry<T>>{
   return {file,value};
 }
 export async function entries<T extends Stored>(kind:Kind,topicId?:string){
+  const generation=readGeneration;
   const all=await list(kind,topicId);
   const result:Entry<T>[]=[];
   for(let i=0;i<all.length;i+=8)result.push(...await Promise.all(all.slice(i,i+8).map(f=>read<T>(f))));
+  // Catalog reads also warm individual lookups. Never prime ambiguous duplicate records
+  // or reintroduce data read before an admin write invalidated the cache.
+  if(generation===readGeneration&&!topicId){
+    const counts=new Map<string,number>();
+    for(const item of result)counts.set(item.value.id,(counts.get(item.value.id)??0)+1);
+    for(const item of result)if(counts.get(item.value.id)===1)recordCache.prime(recordKey(kind,item.value.id),item);
+  }
   return result.sort((a,b)=>a.value.createdAt.localeCompare(b.value.createdAt));
 }
 export async function entry<T extends Stored>(kind:Kind,id:string){
   const files=await list(kind,undefined,id);
   if(files.length!==1) throw new HttpError(files.length?409:404,"Không tìm thấy bản ghi duy nhất.");
   return read<T>(files[0]);
+}
+export async function cachedEntry<T extends Stored>(kind:Kind,id:string):Promise<Entry<T>>{
+  return recordCache.get(recordKey(kind,id),()=>entry<T>(kind,id));
 }
 async function multipart(metadata:object,data:Uint8Array,mime:string){
   if(data.byteLength>5*1024*1024){
@@ -111,14 +129,16 @@ export async function trash(id:string){
 export async function cleanup(ids:string[]){
   for(const id of ids){try{await trash(id);}catch{console.warn("WordLearning: orphan cleanup required");}}
 }
-export async function streamMedia(id:string,ownerId:string,slot:string,range:string|null){
-  const info=await request(url("files/"+encodeURIComponent(id),{fields:fields+",trashed"}));
-  const f=await info.json() as DriveFile&{trashed?:boolean};
+export async function streamMedia(id:string,ownerId:string,slot:string,range:string|null,versioned=false){
+  const f=await metadataCache.get(root()+":"+id,async()=>{
+    const info=await request(url("files/"+encodeURIComponent(id),{fields:fields+",trashed"}));
+    return await info.json() as DriveFile&{trashed?:boolean};
+  });
   const types=slot==="video"?["video/mp4"]:slot==="audio"?["audio/mpeg","audio/wav"]:["image/jpeg","image/png","image/webp"];
   if(f.trashed||!f.parents?.includes(root())||f.appProperties?.wlKind!=="media"||f.appProperties.ownerId!==ownerId||f.appProperties.slot!==slot||!types.includes(f.mimeType??""))throw new HttpError(404,"Không tìm thấy media.");
   if(range&&!/^bytes=(\d+-\d*|-\d+)$/.test(range))throw new HttpError(416,"Range không hợp lệ.");
   const r=await request(url("files/"+encodeURIComponent(id),{alt:"media"}),{headers:range?{Range:range}:{}},[416]);
-  const headers=new Headers({"Content-Type":f.mimeType!,"Cache-Control":"public, max-age=60","X-Content-Type-Options":"nosniff","Accept-Ranges":"bytes"});
+  const headers=new Headers({"Content-Type":f.mimeType!,"Cache-Control":r.status===416?"no-store":versioned?"private, max-age=300":"private, max-age=60","X-Content-Type-Options":"nosniff","Accept-Ranges":"bytes"});
   for(const key of ["content-length","content-range"]){const value=r.headers.get(key);if(value)headers.set(key,value);}
   return new Response(r.body,{status:r.status,headers});
 }
