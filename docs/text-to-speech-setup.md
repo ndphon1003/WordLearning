@@ -12,4 +12,4 @@ Trang học:
 
 Sau khi pull chạy npm install để loại bỏ thư viện TTS cũ, sau đó npm run dev. Không cần credentials mới. Không cần cài eSpeak, tải model AI hay Google Cloud Billing. Âm thanh được lưu trên Google Drive, tương tự ảnh và video.
 
-Kiểm thử: tạo từ mới với cả ba media, kiểm tra thiếu audio bị từ chối, sửa mô tả giữ audio cũ, đổi chữ yêu cầu audio mới. Kiểm tra trang từ ban đầu không tải ảnh/video, mở từng nút, chuyển từ và kiểm tra âm thanh dừng. Kiểm tra trên điện thoại và máy tính trước khi sử dụng.
+Kiểm thử: tạo từ mới với cả ba media, kiểm tra thiếu audio bị từ chối, sửa mô tả giữ audio cũ, đổi chữ yêu cầu audio mới. Kiểm tra trang từ ban đầu tải trước ảnh/audio nhưng không hiển thị/phát, không tải video trước khi chọn; mở từng nút, chuyển từ và kiểm tra âm thanh dừng. Kiểm tra trên điện thoại và máy tính trước khi sử dụng.
