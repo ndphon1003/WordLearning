@@ -4,7 +4,7 @@ Không sử dụng TTS tự động. Giáo viên tự thu hoặc chuẩn bị b�
 
 Trang học:
 - Danh sách từ chỉ hiện chữ; ảnh bìa chủ đề giữ nguyên.
-- Bài học mặc định chỉ hiện từ, mô tả nếu có và ba nút Âm thanh, Hình ảnh, Video.
+- Bài học mặc định hiện từ ở tiêu đề duy nhất, tiến độ chủ đề, hướng dẫn ngắn và ba nút Âm thanh, Hình ảnh, Video; mô tả chỉ lưu trong quản trị, không lặp lại dưới media.
 - Âm thanh: phát bản thu ở tốc độ gốc, nhấn lại để dừng.
 - Hình ảnh: mở/đóng ảnh minh họa.
 - Video: mở/đóng trình phát; học sinh bấm Play để xem, không autoplay.
