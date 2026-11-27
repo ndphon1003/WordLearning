@@ -49,7 +49,7 @@ async function mutate(req:Request,ctx:Context){
     if((req.method==="POST"&&p.length===2)||(req.method==="PATCH"&&p.length===3)){
       const key=p.length===3?id(p[2]):undefined;
       const data=await form(req);
-      const value=await write(()=>kind==="topic"?saveTopic(data,key):saveWord(data,key));
+      const value=await write(async()=>kind==="topic"?await saveTopic(data,key):await saveWord(data,key));
       return json(value,req.method==="POST"?201:200);
     }
     throw new HttpError(405,"Thao tác không hợp lệ.");
