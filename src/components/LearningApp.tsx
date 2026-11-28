@@ -83,12 +83,7 @@ function HomeHero(){
   <h1 className="dictionary-cover">
    {coverMissing?<span className="dictionary-cover-fallback">Từ điển tương tác<br/>2-trong-1</span>:<img src="/dictionary-cover.webp" width={1200} height={800} alt="Từ điển tương tác 2-trong-1. Dành cho học sinh lớp 1. Bộ sách Kết nối tri thức với cuộc sống." fetchPriority="high" onError={()=>setCoverMissing(true)}/>}
   </h1>
-  <div className="dictionary-intro">
-   <span className="eyebrow">MỖI NGÀY MỘT TỪ MỚI</span>
-   <span className="dictionary-greeting">Bé ơi, cùng khám phá nhé!</span>
-   <p>Học từ mới qua hình ảnh, âm thanh và video.</p>
-   <a className="button dictionary-cta" href="#chu-de">Khám phá chủ đề <span aria-hidden="true">↓</span></a>
-  </div>
+
  </section>;
 }
 export default function LearningApp({view}:Props){
