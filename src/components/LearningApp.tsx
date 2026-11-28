@@ -77,6 +77,20 @@ function WordMedia({word}:{word:Word}){
   </div>
  </div>;
 }
+function HomeHero(){
+ const [coverMissing,setCoverMissing]=useState(false);
+ return <section className="hero dictionary-hero">
+  <h1 className="dictionary-cover">
+   {coverMissing?<span className="dictionary-cover-fallback">Từ điển tương tác<br/>2-trong-1</span>:<img src="/dictionary-cover.webp" width={1200} height={800} alt="Từ điển tương tác 2-trong-1. Dành cho học sinh lớp 1. Bộ sách Kết nối tri thức với cuộc sống." fetchPriority="high" onError={()=>setCoverMissing(true)}/>}
+  </h1>
+  <div className="dictionary-intro">
+   <span className="eyebrow">MỖI NGÀY MỘT TỪ MỚI</span>
+   <span className="dictionary-greeting">Bé ơi, cùng khám phá nhé!</span>
+   <p>Học từ mới qua hình ảnh, âm thanh và video.</p>
+   <a className="button dictionary-cta" href="#chu-de">Khám phá chủ đề <span aria-hidden="true">↓</span></a>
+  </div>
+ </section>;
+}
 export default function LearningApp({view}:Props){
  const [data,setData]=useState<Catalog|null>(null),[error,setError]=useState("");
  const load=useCallback(async()=>{try{setError("");const r=await fetch("/api/catalog",{cache:"no-store"});const d=await r.json();if(!r.ok)throw Error(d.error);setData(d);}catch(e){setError(e instanceof Error?e.message:"Không tải được bài học.");}},[]);
@@ -98,7 +112,7 @@ export default function LearningApp({view}:Props){
  {error&&<div className="notice" role="alert">{error} <button className="pill" onClick={load}>Thử lại</button></div>}
  {!data&&!error&&<p className="loading" role="status">🌟 Đang tải bài học…</p>}
  {data&&<>{data.demo&&<div className="demo-banner">Bản demo chỉ đọc · dữ liệu minh họa, chưa kết nối Drive</div>}
- {isAdmin?<Admin data={data} reload={load}/>:view.length===0?<><section className="hero"><div className="hero-copy"><span className="eyebrow">MỖI NGÀY MỘT TỪ MỚI</span><h1>Từ điển tương tác<br/>2-trong-1</h1><p>Cùng khám phá thế giới xung quanh nhé!</p></div><div className="hero-mascot" aria-hidden="true"><span className="mascot-star">⭐</span><span className="mascot-bear">🐻</span><span className="mascot-book">📖</span></div></section><h2 className="section-heading">Chọn chủ đề yêu thích</h2>{!data.topics.length?<div className="empty">Chưa có chủ đề. Nhờ người lớn thêm bài học nhé!</div>:<div className="cards">{data.topics.map(t=><Link key={t.id} className="tile topic-tile" style={{background:t.color}} href={"/topics/"+t.id}><Art src={t.cover} emoji={t.emoji} label={t.name}/><h3>{t.name}</h3><span className="tile-detail">{data.words.filter(w=>w.topicId===t.id).length} từ ngữ · Khám phá →</span></Link>)}</div>}</>:
+ {isAdmin?<Admin data={data} reload={load}/>:view.length===0?<><HomeHero/><h2 id="chu-de" className="section-heading">Chọn chủ đề yêu thích</h2>{!data.topics.length?<div className="empty">Chưa có chủ đề. Nhờ người lớn thêm bài học nhé!</div>:<div className="cards">{data.topics.map(t=><Link key={t.id} className="tile topic-tile" style={{background:t.color}} href={"/topics/"+t.id}><Art src={t.cover} emoji={t.emoji} label={t.name}/><h3>{t.name}</h3><span className="tile-detail">{data.words.filter(w=>w.topicId===t.id).length} từ ngữ · Khám phá →</span></Link>)}</div>}</>:
  view[0]==="topics"&&topic&&view.length===2?<><Link className="back" href="/">← Các chủ đề</Link><section className="topic-hero" style={{background:topic.color}}><span className="topic-symbol" aria-hidden="true">{topic.emoji}</span><div><h1>{topic.name}</h1><p>{topic.description}</p></div></section><div className="section-title"><h2>Chọn từ bé muốn học</h2>{words.length>=3&&<button className="button orange" onClick={startQuiz}>⭐ Chơi ôn tập</button>}</div>
  {quiz&&<section className="quiz"><h2>Bé chọn hình đúng nhé!</h2><p className="quiz-word">{quiz.target.text}</p><Listen key={quiz.target.id} word={quiz.target} label="Nghe phát âm"/><div className="cards quiz-cards">{quiz.options.map(w=><button key={w.id} className={"tile quiz-option "+(chosen===w.id?(w.id===quiz.target.id?"correct":"incorrect"):"")} onClick={()=>setChosen(w.id)} aria-label={w.text}><Art src={w.image} emoji={w.emoji} label={w.text}/></button>)}</div><p className={"quiz-feedback "+(chosen===quiz.target.id?"quiz-success":chosen?"quiz-retry":"")} role="status">{chosen===quiz.target.id?"⭐ Bé giỏi quá!":chosen?"Bé thử lại nhé!":"Chạm vào một hình."}</p><div className="quiz-actions"><button className="button blue" onClick={startQuiz}>Câu khác →</button><button className="button ghost" onClick={()=>setQuiz(null)}>Đóng</button></div></section>}
  <div className="cards">{words.map(w=><Link className="tile word-tile" href={"/topics/"+topic.id+"/words/"+w.id} key={w.id}><h3>{w.text}</h3><span className="tile-detail word-open">Học ngay <span aria-hidden="true">→</span></span></Link>)}</div>{!words.length&&<div className="empty">Chủ đề này chưa có từ ngữ.</div>}</>:
